@@ -1,6 +1,6 @@
 # Forus · Etapa 4: entrenamiento y comida conectados
 
-> Actualizado el 01-10-2026. **Estado:** construida y probada en modo local, con los ajustes pedidos por el usuario (ver "Respuestas del usuario"). Falta publicarla: hay que ejecutar `supabase/migrations/0002_etapa4.sql` en Supabase **antes** de subir el código, porque la app nueva sincroniza tablas que aún no existen.
+> Actualizado el 01-10-2026. **Estado: en línea** en https://forus-app.netlify.app (commit d15efb5), con los ajustes pedidos por el usuario (ver "Respuestas del usuario"). La migración `0002_etapa4.sql` se ejecutó en Supabase antes de subir el código.
 
 ## Respuestas del usuario (01-10-2026)
 1. **Teléfonos:** uno usa Android y el otro iPhone. En iPhone la notificación de fin de descanso no es exacta con la pantalla bloqueada; para eso haría falta push desde un servidor (Etapa 5).
@@ -172,7 +172,11 @@
   - sin errores en la consola.
 - **No probado:** la cámara real, la notificación con el teléfono bloqueado y la subida de fotos a Supabase. Las tres se prueban en el teléfono después de publicar.
 
-## Para publicar
-1. Supabase → SQL Editor: ejecutar `supabase/migrations/0002_etapa4.sql`. Solo agrega; no toca datos.
-2. `git push` desde `forus/`: Netlify publica solo.
-3. En el teléfono: abrir la app. Se actualiza sola al volver a abrirla.
+## Publicado (01-10-2026)
+1. Supabase → SQL Editor: se ejecutó `0002_etapa4.sql` ("Run and enable RLS"; resultado "Success").
+   - Verificado: 3 tablas con RLS y su política, `phases.block_start`, el bucket `progress-photos` privado de 5 MB y la política `forus_fotos_propias`.
+2. `git push` → Netlify publicó `d15efb5`. Verificado en línea: bundle nuevo, `sw-notify.js` y motor ZXing (`.wasm`) responden 200. La app se actualiza sola al abrirla.
+
+## Pendiente
+- En los teléfonos, probar la cámara del escáner, la subida de fotos y la notificación de descanso (Android, y en iPhone con la app instalada en la pantalla de inicio).
+- Esperar la confirmación del usuario para la Etapa 5 (funciones avanzadas: coach con IA, plan semanal y lista de compras, alertas de micronutrientes, foto de comida, push exacto en iPhone).
