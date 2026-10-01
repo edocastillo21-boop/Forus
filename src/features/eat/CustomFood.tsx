@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router';
+import { useLocation, useNavigate, useSearchParams } from 'react-router';
 import { useApp } from '../../data/app';
 import { useCustomFoods } from '../../data/hooks';
 import { put, remove } from '../../data/store';
 import { fmt } from '../../data/logic';
 import type { CustomFood } from '../../data/types';
+import type { OffProduct } from '../../data/off';
 import { uid } from '../../core/templates';
 import { Icon } from '../../ui/Icon';
 import { Header, Seg, useToast } from '../../ui/kit';
@@ -29,18 +30,22 @@ function Form({ existing }: { existing?: CustomFood }) {
   const nav = useNavigate();
   const toast = useToast();
   const [params] = useSearchParams();
-  const back = () => (params.get('d') ? nav(`/comer/agregar?d=${params.get('d')}&m=${params.get('m') ?? ''}`, { replace: true }) : nav(-1));
-  const [name, setName] = useState(existing?.name ?? params.get('n') ?? '');
-  const [brand, setBrand] = useState(existing?.brand ?? '');
+  const off = (useLocation().state as { off?: OffProduct } | null)?.off;
+  const barcode = existing?.barcode ?? params.get('bc');
+  const back = (openId?: string) => (params.get('d') ? nav(`/comer/agregar?d=${params.get('d')}&m=${params.get('m') ?? ''}${openId ? `&open=c:${openId}` : ''}`, { replace: true }) : nav(-1));
+  const [name, setName] = useState(existing?.name ?? off?.name ?? params.get('n') ?? '');
+  const [brand, setBrand] = useState(existing?.brand ?? off?.brand ?? '');
   const [group, setGroup] = useState(existing?.group_code ?? 'snacks');
-  const [mode, setMode] = useState<'100' | 'porcion'>(existing && !existing.portions.length ? '100' : 'porcion');
-  const [pName, setPName] = useState(existing?.portions[0]?.[0] ?? 'Porción');
-  const [pGrams, setPGrams] = useState(String(existing?.portions[0]?.[1] ?? ''));
+  // Open Food Facts trae los valores por 100 g; la etiqueta chilena también los muestra.
+  const [mode, setMode] = useState<'100' | 'porcion'>(off || (existing && !existing.portions.length) ? '100' : 'porcion');
+  const [pName, setPName] = useState(existing?.portions[0]?.[0] ?? off?.serving?.[0] ?? 'Porción');
+  const [pGrams, setPGrams] = useState(String(existing?.portions[0]?.[1] ?? off?.serving?.[1] ?? ''));
   const base = (k: Key) => {
+    if (off) return String(off[k]).replace('.', ',');
     if (!existing) return '';
     const g = existing.portions[0]?.[1];
     const v = mode === 'porcion' && g ? (existing[k] * g) / 100 : existing[k];
-    return String(Math.round(v * 10) / 10);
+    return String(Math.round(v * 10) / 10).replace('.', ',');
   };
   const [vals, setVals] = useState<Record<Key, string>>(() => Object.fromEntries(FIELDS.map(([k]) => [k, base(k)])) as Record<Key, string>);
   const [confirmDel, setConfirmDel] = useState(false);
@@ -58,17 +63,20 @@ function Form({ existing }: { existing?: CustomFood }) {
     const f = mode === 'porcion' ? 100 / grams : 1;
     const per = (k: Key) => Math.round((k === 'kcal' ? kcal : n(vals[k])) * f * 10) / 10;
     const portions: [string, number][] = grams ? [[pName.trim() || 'Porción', grams]] : [];
+    const id = existing?.id ?? uid();
     await put('foods', {
-      id: existing?.id ?? uid(), name: name.trim(), brand: brand.trim() || null, barcode: existing?.barcode ?? null, group_code: group,
+      id, name: name.trim(), brand: brand.trim() || null, barcode, group_code: group,
       kcal: per('kcal'), protein: per('protein'), carbs: per('carbs'), fat: per('fat'), fiber: per('fiber'), sugar: per('sugar'), sodium: per('sodium'), portions,
     });
-    toast(existing ? 'Alimento actualizado' : 'Alimento creado: búscalo o míralo en "Mis alimentos"');
-    back();
+    toast(existing ? 'Alimento actualizado' : barcode ? 'Guardado: la próxima vez que lo escanees aparece al tiro' : 'Alimento creado: búscalo o míralo en "Mis alimentos"');
+    back(existing ? undefined : id);
   }
 
   return (
     <div className="page full">
       <Header title={existing ? 'Editar alimento' : 'Nuevo alimento'} />
+      {off && <div className="hint" style={{ marginBottom: 14 }}><Icon name="barcode" size={18} /><span>Encontrado en <b>Open Food Facts</b> (código {off.code}). Revisa que los valores calcen con la etiqueta antes de guardar.{!off.complete ? ' Falta el nombre: escríbelo.' : ''}</span></div>}
+      {!off && barcode && !existing && <div className="hint" style={{ marginBottom: 14 }}><Icon name="barcode" size={18} /><span>Código {barcode}. Copia los valores de la tabla nutricional del envase; quedará guardado para la próxima vez que lo escanees.</span></div>}
       <label className="field"><span>Nombre</span><input className="input" autoFocus={!existing} value={name} onChange={(e) => setName(e.target.value)} placeholder="Ej.: Barra de proteína" /></label>
       <label className="field"><span>Marca (opcional)</span><input className="input" value={brand} onChange={(e) => setBrand(e.target.value)} /></label>
       <label className="field"><span>Grupo</span>

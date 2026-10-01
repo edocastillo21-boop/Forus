@@ -75,6 +75,17 @@ export interface Plan {
 
 const r10 = (x: number) => Math.round(x / 10) * 10;
 
+/** Superávit o déficit diario que pide el objetivo (antes de los ajustes semanales). */
+export function plannedDelta(goal: Goal, rateKgWeek: number, tdee: number): number {
+  if (goal === 'volumen' || goal === 'definicion') return (rateKgWeek * KCAL_PER_KG) / 7;
+  if (goal === 'recomposicion') return -0.1 * tdee;
+  return 0;
+}
+
+/** Calorías que da la fórmula (sin ajustes): sirve para mostrar cuánto se ha ajustado con datos reales. */
+export const kcalFloor = (sex: Sex) => (sex === 'm' ? 1500 : 1200);
+export const formulaKcal = (goal: Goal, rateKgWeek: number, tdee: number, sex: Sex) => Math.max(kcalFloor(sex), r10(tdee + plannedDelta(goal, rateKgWeek, tdee)));
+
 export function computePlan(i: PlanInput): Plan {
   const warnings: string[] = [];
   const bmr = bmrMifflin(i.sex, i.weightKg, i.heightCm, i.age);
@@ -82,12 +93,10 @@ export function computePlan(i: PlanInput): Plan {
   const trainingKcal = trainingKcalPerDay(i.weightKg, i.sessionsPerWeek, i.sessionMin);
   const tdee = bmr * activityFactor + trainingKcal;
 
-  let delta = 0;
-  if (i.goal === 'volumen' || i.goal === 'definicion') delta = (i.rateKgWeek * KCAL_PER_KG) / 7;
-  if (i.goal === 'recomposicion') delta = -0.1 * tdee;
+  const delta = plannedDelta(i.goal, i.rateKgWeek, tdee);
 
   let kcal = r10(tdee + delta);
-  const floor = i.sex === 'm' ? 1500 : 1200;
+  const floor = kcalFloor(i.sex);
   if (kcal < floor) {
     warnings.push(`Subimos tu objetivo a ${floor} kcal: menos que eso requiere supervisión profesional.`);
     kcal = floor;

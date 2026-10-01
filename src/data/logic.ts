@@ -89,9 +89,10 @@ export function newSession(opts: {
   };
 }
 
-/** Estado de cada día (para la racha y la semana en Inicio). */
+/** Estado de cada día (para la racha y la semana en Inicio). El objetivo de cada día viene del targeter (ciclado). */
 export function dayResults(opts: {
-  from: string; to: string; phases: Phase[]; meso: Mesocycle | undefined; logs: FoodLog[]; sessions: WorkoutSession[];
+  from: string; to: string; meso: Mesocycle | undefined; logs: FoodLog[]; sessions: WorkoutSession[];
+  target: (date: string) => { kcal: number; protein: number } | null;
 }) {
   const byDate = new Map<string, FoodLog[]>();
   for (const l of opts.logs) {
@@ -100,15 +101,15 @@ export function dayResults(opts: {
     byDate.get(l.date)!.push(l);
   }
   const trainedDates = new Set(opts.sessions.filter((s) => s.status === 'terminada' && !s.deleted_at).map((s) => s.date));
-  const out: { date: string; ok: boolean; scheduled: boolean; trained: boolean; logged: boolean }[] = [];
+  const out: { date: string; ok: boolean; scheduled: boolean; trained: boolean; logged: boolean; kcal: number }[] = [];
   for (let d = opts.from; d <= opts.to; d = addDays(d, 1)) {
-    const ph = phaseFor(opts.phases, d);
+    const tg = opts.target(d);
     const dayLogs = byDate.get(d) ?? [];
     const t = totals(dayLogs);
     const scheduled = plannedFor(opts.meso, d) != null;
     const trained = trainedDates.has(d);
-    const r = ph ? evaluateDay({ targetKcal: ph.kcal, targetProtein: ph.protein_g, kcal: t.kcal, protein: t.protein, logged: dayLogs.length > 0, scheduled, trained }) : { ok: false };
-    out.push({ date: d, ok: r.ok, scheduled, trained, logged: dayLogs.length > 0 });
+    const r = tg ? evaluateDay({ targetKcal: tg.kcal, targetProtein: tg.protein, kcal: t.kcal, protein: t.protein, logged: dayLogs.length > 0, scheduled, trained }) : { ok: false };
+    out.push({ date: d, ok: r.ok, scheduled, trained, logged: dayLogs.length > 0, kcal: t.kcal });
   }
   return out;
 }

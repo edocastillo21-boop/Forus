@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { useApp, useToday } from '../../data/app';
-import { useCustomFoods, useFoodLogs, usePhases, useRecentFoodLogs, useSavedMeals } from '../../data/hooks';
+import { useCustomFoods, useFoodLogs, useRecentFoodLogs, useSavedMeals } from '../../data/hooks';
 import { foodLogFrom, toggleFavorite } from '../../data/actions';
-import { currentPhase, fmt, mealsFor, totals } from '../../data/logic';
+import { fmt, mealsFor, totals } from '../../data/logic';
+import { useTargets } from '../../data/targets';
 import { put, putMany, remove } from '../../data/store';
 import { resolveFood, searchFoods, viewCustomFood, type FoodView } from '../../data/catalog';
 import type { FoodLog } from '../../data/types';
@@ -11,6 +12,8 @@ import { uid } from '../../core/templates';
 import { Icon } from '../../ui/Icon';
 import { Sheet, useToast } from '../../ui/kit';
 import { QtySheet, portionText, type Amount } from './QtySheet';
+import { Scanner } from './Scanner';
+import { lookupBarcode } from '../../data/off';
 
 type Tab = 'recientes' | 'favoritos' | 'comidas' | 'propios';
 
@@ -28,12 +31,14 @@ export function AddFood() {
   const recentLogs = useRecentFoodLogs(500);
   const saved = useSavedMeals();
   const dayLogs = useFoodLogs(date);
-  const phases = usePhases();
-  const ph = currentPhase(phases, date);
+  const targetFor = useTargets(today);
+  const tg = targetFor(date);
   const [q, setQ] = useState('');
   const [tab, setTab] = useState<Tab>('recientes');
   const [sel, setSel] = useState<{ food: FoodView; amount: Amount | null } | null>(null);
   const [quick, setQuick] = useState(false);
+  const [scan, setScan] = useState(false);
+  const [looking, setLooking] = useState<string | null>(null);
   const [added, setAdded] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const favs = profile.prefs?.favorites ?? [];
@@ -54,6 +59,31 @@ export function AddFood() {
   const boost = useMemo(() => new Set([...recent.slice(0, 80).map((r) => r.food.ref), ...favs]), [recent, favs]);
   const results = useMemo(() => (q.trim() ? searchFoods(cat, custom, q, boost) : []), [q, cat, custom, boost]);
   const lastFor = (ref: string) => recent.find((r) => r.food.ref === ref)?.last;
+
+  // Al volver de crear un alimento escaneado se abre directo la cantidad.
+  const openRef = params.get('open');
+  useEffect(() => {
+    if (!openRef) return;
+    const f = resolveFood(cat, custom, openRef);
+    if (!f) return;
+    setSel({ food: f, amount: f.portions[0] ? { grams: f.portions[0][1], portion: f.portions[0][0], qty: 1 } : null });
+    setParams({ d: date, m: mealId }, { replace: true });
+  }, [openRef, cat, custom, date, mealId, setParams]);
+
+  const onCode = useCallback(async (code: string) => {
+    setScan(false);
+    const mine = custom.find((c) => c.barcode === code);
+    if (mine) { open(viewCustomFood(mine)); return; }
+    setLooking(code);
+    const r = await lookupBarcode(code);
+    setLooking(null);
+    const base = `/comer/nuevo?d=${date}&m=${mealId}&bc=${code}`;
+    if (r.found) { nav(base, { state: { off: r.product } }); return; }
+    if (r.reason === 'sin_senal') { toast('Sin señal: no pudimos buscar el código. Créalo con la etiqueta.'); nav(base); return; }
+    toast(r.reason === 'sin_datos' ? 'El producto existe, pero sin información nutricional: cópiala de la etiqueta' : 'No está en Open Food Facts: créalo con la etiqueta (queda guardado para la próxima)');
+    nav(base);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [custom, date, mealId]);
 
   async function add(food: FoodView, a: Amount, toMeal = mealId) {
     const row = foodLogFrom(food, a.grams, { date, meal: toMeal, portion: a.portion, qty: a.qty });
@@ -96,7 +126,7 @@ export function AddFood() {
     <div className="page full">
       <div className="row between" style={{ marginBottom: 12 }}>
         <button className="icon-btn" onClick={() => nav(date === today ? '/comer' : `/comer?d=${date}`)} aria-label="Volver"><Icon name="chev-l" /></button>
-        <div className="grow" style={{ textAlign: 'center' }}><b>Agregar a {meal.name}</b><div className="xs muted">{fmt(totals(dayLogs).kcal)} de {fmt(ph?.kcal ?? 0)} kcal hoy</div></div>
+        <div className="grow" style={{ textAlign: 'center' }}><b>Agregar a {meal.name}</b><div className="xs muted">{fmt(totals(dayLogs).kcal)} de {fmt(tg?.kcal ?? 0)} kcal {date === today ? 'hoy' : 'ese día'}</div></div>
         <button className="icon-btn" onClick={() => setQuick(true)} aria-label="Registro rápido"><Icon name="zap" /></button>
       </div>
       <div ref={chipsRef} className="chips" style={{ flexWrap: 'nowrap', overflowX: 'auto', paddingBottom: 6, marginBottom: 8 }}>
@@ -105,8 +135,10 @@ export function AddFood() {
       <div className="search">
         <Icon name="search" />
         <input ref={inputRef} autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar: marraqueta, pollo, porotos…" enterKeyHint="search" />
-        {q && <button onClick={() => { setQ(''); inputRef.current?.focus(); }} aria-label="Borrar búsqueda"><Icon name="x" size={18} /></button>}
+        {q ? <button onClick={() => { setQ(''); inputRef.current?.focus(); }} aria-label="Borrar búsqueda"><Icon name="x" size={18} /></button>
+          : <button onClick={() => setScan(true)} aria-label="Escanear código de barras" style={{ color: 'var(--primary-text)' }}><Icon name="barcode" /></button>}
       </div>
+      {looking && <div className="hint" style={{ marginTop: 10 }}><span className="spinner" style={{ width: 18, height: 18, borderWidth: 2 }} /><span>Buscando {looking} en Open Food Facts…</span></div>}
 
       {q.trim() ? (
         <div style={{ marginTop: 6 }}>
@@ -171,7 +203,7 @@ export function AddFood() {
       {sel && (
         <QtySheet
           key={sel.food.ref} food={sel.food} initial={sel.amount} meals={meals} meal={mealId}
-          day={totals(dayLogs)} target={ph ? { kcal: ph.kcal, protein: ph.protein_g } : null}
+          day={totals(dayLogs)} target={tg ? { kcal: tg.kcal, protein: tg.protein } : null}
           favorite={favs.includes(sel.food.ref)}
           onFavorite={async () => { const on = await toggleFavorite(profile, sel.food.ref); toast(on ? 'Agregado a favoritos' : 'Quitado de favoritos'); }}
           confirmLabel={(m) => `Agregar a ${m?.name ?? meal.name}`}
@@ -179,6 +211,8 @@ export function AddFood() {
           onConfirm={async (a, m) => { await add(sel.food, a, m ?? mealId); setSel(null); setQ(''); }}
         />
       )}
+
+      {scan && <Scanner onResult={(c) => void onCode(c)} onClose={() => setScan(false)} />}
 
       {quick && <QuickAdd onClose={() => setQuick(false)} onAdd={async (row) => {
         const log = { id: uid(), date, meal: mealId, food_ref: 'q:', grams: 0, portion: null, qty: null, fiber: 0, source: 'rapido', created_at: new Date().toISOString(), ...row };

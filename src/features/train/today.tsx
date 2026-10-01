@@ -7,6 +7,8 @@ import { newSession, fmt } from '../../data/logic';
 import { put } from '../../data/store';
 import { nextDayIndex, plannedForDay, type Planned } from '../../core/schedule';
 import type { RoutineDay, WorkoutSession } from '../../data/types';
+import type { DayTarget } from '../../data/targets';
+import { KIND_INFO } from '../../core/cycling';
 import { Icon } from '../../ui/Icon';
 import { Sheet } from '../../ui/kit';
 
@@ -54,7 +56,7 @@ export function ActiveSessionBanner({ session }: { session: WorkoutSession | nul
   );
 }
 
-export function TodayWorkoutCard({ tp, today }: { tp: TodayPlan; today: string }) {
+export function TodayWorkoutCard({ tp, today, target }: { tp: TodayPlan; today: string; target?: DayTarget | null }) {
   const { cat } = useApp();
   const nav = useNavigate();
   const start = useStartWorkout(tp, today);
@@ -134,6 +136,11 @@ export function TodayWorkoutCard({ tp, today }: { tp: TodayPlan; today: string }
       </div>
       <div className="h1" style={{ margin: '6px 0 2px' }}>{day.name}</div>
       <div className="small muted">Semana {p.week} de {meso.weeks} · {day.exercises.length} ejercicios · ~{estimateMinutes(day)} min</div>
+      {target?.cycled && target.from === 'plan' && target.delta !== 0 && (
+        <div className="small" style={{ marginTop: 6 }}>
+          <Icon name="zap" size={14} style={{ display: 'inline', verticalAlign: -2, color: 'var(--carb)' }} /> {KIND_INFO[target.kind].label}, demanda {KIND_INFO[target.kind].demand}: {target.delta > 0 ? '+' : '−'}{fmt(Math.abs(target.delta))} g de carbohidratos hoy
+        </div>
+      )}
       <div className="xs muted" style={{ margin: '10px 0 14px' }}>{day.exercises.slice(0, 5).map((e) => cat.exById.get(e.exId)?.n ?? 'Ejercicio').join(' · ')}{day.exercises.length > 5 ? '…' : ''}</div>
       <button className="btn btn-primary" onClick={() => go(p.dayIndex, p)} disabled={busy}><Icon name="play" size={18} />Empezar entrenamiento</button>
       <div style={{ textAlign: 'center', marginTop: 10 }}><button className="link" onClick={() => setPick(true)}>Hacer otro día</button></div>

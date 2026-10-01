@@ -1,9 +1,12 @@
 import { useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { useApp, useToday } from '../../data/app';
-import { useCustomFoods, useDayLog, useFoodLogs, usePhases } from '../../data/hooks';
+import { useCustomFoods, useDayLog, useFoodLogs } from '../../data/hooks';
 import { addWater, foodLogFrom } from '../../data/actions';
-import { currentPhase, fmt, mealsFor, totals } from '../../data/logic';
+import { fmt, mealsFor, totals } from '../../data/logic';
+import { useTargets } from '../../data/targets';
+import { mealTargets } from '../../core/meals';
+import { KindChip } from '../home/Home';
 import { getDb, put, putMany, remove } from '../../data/store';
 import { resolveFood } from '../../data/catalog';
 import type { FoodLog, MealSlot } from '../../data/types';
@@ -23,16 +26,17 @@ export function Diary() {
   const logs = useFoodLogs(date);
   const yesterdayLogs = useFoodLogs(addDays(date, -1));
   const custom = useCustomFoods();
-  const phases = usePhases();
+  const targetFor = useTargets(today);
   const dayLog = useDayLog(date);
   const [editing, setEditing] = useState<FoodLog | null>(null);
   const [menu, setMenu] = useState<MealSlot | null>(null);
   const [saveName, setSaveName] = useState<{ meal: MealSlot; name: string } | null>(null);
 
-  const ph = currentPhase(phases, date);
-  const target = ph ? { kcal: ph.kcal, protein: ph.protein_g, carbs: ph.carbs_g, fat: ph.fat_g } : { kcal: 0, protein: 0, carbs: 0, fat: 0 };
+  const tg = targetFor(date);
+  const target = tg ?? { kcal: 0, protein: 0, carbs: 0, fat: 0 };
   const t = totals(logs);
   const meals = mealsFor(profile);
+  const perMeal = useMemo(() => new Map((tg ? mealTargets(tg, meals, tg.training ? tg.trainingTime : null) : []).map((m) => [m.id, m])), [tg, meals]);
   const byMeal = useMemo(() => {
     const m = new Map<string, FoodLog[]>();
     for (const l of logs) { if (!m.has(l.meal)) m.set(l.meal, []); m.get(l.meal)!.push(l); }
@@ -40,7 +44,7 @@ export function Diary() {
   }, [logs]);
   const orphan = logs.filter((l) => !meals.some((m) => m.id === l.meal));
   const water = dayLog && !dayLog.deleted_at ? dayLog.water_ml : 0;
-  const waterGoal = profile.prefs?.waterGoal ?? 2500;
+  const waterGoal = tg?.water ?? profile.prefs?.waterGoal ?? 2500;
   const left = target.kcal - t.kcal;
 
   const go = (d: string) => setParams(d === today ? {} : { d }, { replace: true });
@@ -72,6 +76,7 @@ export function Diary() {
       </div>
 
       <div className="card">
+        {tg && <KindChip t={tg} />}
         <div className="row" style={{ gap: 16 }}>
           <Ring value={t.kcal} max={target.kcal} size={108}>
             <div className="num" style={{ fontSize: 26, lineHeight: 1, color: left < 0 ? 'var(--danger)' : undefined }}>{fmt(Math.abs(left))}</div>
@@ -94,16 +99,21 @@ export function Diary() {
       {meals.map((m) => {
         const items = byMeal.get(m.id) ?? [];
         const mt = totals(items);
+        const goal = perMeal.get(m.id);
         return (
           <div key={m.id} className="card">
             <div className="meal-h">
-              <div><b className="h2">{m.name}</b> <span className="xs faint">{m.time}</span></div>
+              <div className="grow" style={{ minWidth: 0 }}>
+                <b className="h2">{m.name}</b> <span className="xs faint">{m.time}</span>
+                {goal?.tag && <span className="badge" style={{ marginLeft: 6 }}><Icon name="zap" size={11} style={{ display: 'inline', verticalAlign: -1 }} /> {goal.tag === 'pre' ? 'Pre-entreno' : 'Post-entreno'}</span>}
+              </div>
               <div className="row" style={{ gap: 6 }}>
-                {items.length > 0 && <span className="small muted"><b className="num" style={{ fontSize: 17, color: 'var(--text)' }}>{fmt(mt.kcal)}</b> kcal</span>}
+                {(items.length > 0 || goal) && <span className="small muted"><b className="num" style={{ fontSize: 17, color: 'var(--text)' }}>{fmt(mt.kcal)}</b>{goal ? ` / ${fmt(goal.kcal)}` : ''} kcal</span>}
                 <button className="icon-btn" style={{ width: 36, height: 36 }} onClick={() => setMenu(m)} aria-label={`Opciones de ${m.name}`}><Icon name="more" size={18} /></button>
               </div>
             </div>
-            {items.length > 0 && <div className="xs muted" style={{ marginTop: -2, marginBottom: 4 }}>P {fmt(mt.protein)} · C {fmt(mt.carbs)} · G {fmt(mt.fat)} g</div>}
+            {items.length > 0 ? <div className="xs muted" style={{ marginTop: -2, marginBottom: 4 }}>P {fmt(mt.protein)} · C {fmt(mt.carbs)} · G {fmt(mt.fat)} g{goal ? <span className="faint"> · meta P {goal.protein} · C {goal.carbs}</span> : null}</div>
+              : goal && <div className="xs faint" style={{ marginTop: -2, marginBottom: 4 }}>Meta: ~{fmt(goal.protein)} g de proteína · {fmt(goal.carbs)} g de carbohidratos{goal.tag ? ' (más carbos por el entreno)' : ''}</div>}
             <div>
               {items.map((l) => <Entry key={l.id} l={l} onClick={() => setEditing(l)} />)}
             </div>

@@ -5,7 +5,7 @@ import { usePhases, useSessions, useWeights } from '../../data/hooks';
 import { currentPhase, fmt, fmtKg } from '../../data/logic';
 import { remove } from '../../data/store';
 import type { BodyWeight } from '../../data/types';
-import { addDays, relativeDay, shortDate, startOfWeek } from '../../core/dates';
+import { addDays, daysBetween, relativeDay, shortDate, startOfWeek } from '../../core/dates';
 import { GOALS } from '../../core/plan';
 import { bestE1rm } from '../../core/strength';
 import { movingAverage, weeklyRate } from '../../core/trend';
@@ -14,21 +14,29 @@ import { Icon } from '../../ui/Icon';
 import { Seg, SyncBadge, useToast } from '../../ui/kit';
 import { LineChart } from '../../ui/chart';
 import { Thumb, WeightSheet } from '../../ui/shared';
+import { blockStartOf } from '../../data/actions';
+import { Measures } from './Measures';
+import { Photos } from './Photos';
 
-type Tab = 'cuerpo' | 'fuerza' | 'musculos';
+type Tab = 'cuerpo' | 'medidas' | 'fotos' | 'fuerza' | 'musculos';
+
+const TABS: [Tab, string][] = [['cuerpo', 'Peso'], ['medidas', 'Medidas'], ['fotos', 'Fotos'], ['fuerza', 'Fuerza'], ['musculos', 'Series']];
 
 export function Progress() {
-  const [tab, setTab] = useState<Tab>('cuerpo');
+  const [tab, setTab] = useState<Tab>(() => { try { return (sessionStorage.getItem('forus-prog-tab') as Tab) || 'cuerpo'; } catch { return 'cuerpo'; } });
+  const pick = (t: Tab) => { setTab(t); try { sessionStorage.setItem('forus-prog-tab', t); } catch { /* sin almacenamiento */ } };
   return (
     <div className="page">
       <div className="row between" style={{ marginBottom: 14 }}>
         <div className="h1">Progreso</div>
         <SyncBadge />
       </div>
-      <div style={{ marginBottom: 14 }}>
-        <Seg options={[{ value: 'cuerpo' as Tab, label: 'Peso' }, { value: 'fuerza' as Tab, label: 'Fuerza' }, { value: 'musculos' as Tab, label: 'Series' }]} value={tab} onChange={setTab} />
+      <div className="tabs" style={{ margin: '0 0 14px' }}>
+        {TABS.map(([k, l]) => <button key={k} className={tab === k ? 'on' : ''} onClick={() => pick(k)}>{l}</button>)}
       </div>
       {tab === 'cuerpo' && <Body />}
+      {tab === 'medidas' && <Measures />}
+      {tab === 'fotos' && <Photos />}
       {tab === 'fuerza' && <Strength />}
       {tab === 'musculos' && <Muscles />}
     </div>
@@ -49,6 +57,7 @@ function Body() {
   const from = range ? addDays(today, -range) : '0000';
   const pts = trend.filter((p) => p.date >= from).map((p) => ({ date: p.date, y: p.weight, line: Math.round(p.avg * 100) / 100 }));
   const sincePhase = ph && last ? last.avg - ph.start_weight : null;
+  const phaseWeek = ph ? Math.floor(daysBetween(blockStartOf(ph), today) / 7) + 1 : null;
   const target = ph?.rate_kg_week ?? 0;
   const onTrack = rate != null && ph ? (target === 0 ? Math.abs(rate) <= 0.15 : target > 0 ? rate >= target * 0.5 && rate <= target * 1.6 : rate <= target * 0.5 && rate >= target * 1.6) : null;
 
@@ -57,7 +66,7 @@ function Body() {
       <div className="grid3">
         <div className="stat"><div className="xs muted">Promedio 7 d</div><div className="num">{last ? fmtKg(Math.round(last.avg * 10) / 10) : '–'}</div></div>
         <div className="stat"><div className="xs muted">Ritmo/sem</div><div className="num" style={{ color: onTrack == null ? undefined : onTrack ? 'var(--ok)' : 'var(--warn)' }}>{rate != null ? `${rate >= 0 ? '+' : '−'}${fmt(Math.abs(rate), 2)}` : '–'}</div></div>
-        <div className="stat"><div className="xs muted">En la fase</div><div className="num">{sincePhase != null ? `${sincePhase >= 0 ? '+' : '−'}${fmt(Math.abs(sincePhase), 1)}` : '–'}</div></div>
+        <div className="stat"><div className="xs muted">En la fase{phaseWeek ? ` (sem ${phaseWeek})` : ''}</div><div className="num">{sincePhase != null ? `${sincePhase >= 0 ? '+' : '−'}${fmt(Math.abs(sincePhase), 1)}` : '–'}</div></div>
       </div>
       <div className="card">
         <div className="row between" style={{ marginBottom: 8 }}>
@@ -70,7 +79,7 @@ function Body() {
         {ph && (
           <p className="small muted" style={{ marginTop: 10 }}>
             {GOALS[ph.type].short}: objetivo {target ? `${target > 0 ? '+' : '−'}${fmt(Math.abs(target), 2)} kg/sem` : 'mantener'}.
-            {rate == null ? ' El ritmo real aparece con al menos 10 días de pesajes.' : onTrack ? ' Vas en línea con tu plan.' : ' Vas fuera del rango: si sigue así 2 semanas, recalcula tu plan en Perfil.'}
+            {rate == null ? ' El ritmo real aparece con al menos 10 días de pesajes.' : onTrack ? ' Vas en línea con tu plan.' : ' Vas fuera del rango: la revisión del domingo te propondrá un ajuste si se mantiene.'}
           </p>
         )}
       </div>
@@ -99,7 +108,7 @@ function Body() {
           <div className="list">
             {[...phases].sort((a, b) => b.start_date.localeCompare(a.start_date)).map((p) => (
               <div key={p.id} className="li">
-                <div className="grow"><b>{GOALS[p.type].short}</b><div className="xs muted">{shortDate(p.start_date)} – {p.end_date ? shortDate(p.end_date) : 'hoy'} · {fmt(p.kcal)} kcal · {p.protein_g} g prot.</div></div>
+                <div className="grow"><b>{p.notes?.startsWith('Ajuste') ? p.notes : GOALS[p.type].short}</b><div className="xs muted">{shortDate(p.start_date)} – {p.end_date ? shortDate(p.end_date) : 'hoy'} · {fmt(p.kcal)} kcal · {p.protein_g} g prot.</div></div>
                 {p.status === 'activa' && <span className="badge">Actual</span>}
               </div>
             ))}

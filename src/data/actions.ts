@@ -1,7 +1,7 @@
 // Acciones de escritura reutilizadas por varias pantallas.
 import type { FoodView } from './catalog';
 import { getDb, getUid, put, update } from './store';
-import type { BodyWeight, FoodLog, Mesocycle, Phase, Prefs, Profile, Routine, TableName } from './types';
+import type { BodyMeasurement, BodyWeight, FoodLog, Mesocycle, Phase, Prefs, Profile, Routine, TableName, WeeklyCheckin } from './types';
 import { TABLES } from './types';
 import { computePlan, type Plan } from '../core/plan';
 import { ageFrom } from '../core/dates';
@@ -54,13 +54,38 @@ export function planFor(profile: Profile, weightKg: number, goal = profile.goal,
   });
 }
 
-export function phaseFromPlan(plan: Plan, o: { goal: Phase['type']; start: string; rate: number; weight: number; goalWeight: number | null }): Omit<Phase, 'user_id' | 'updated_at' | 'deleted_at'> {
+export function phaseFromPlan(plan: Plan, o: { goal: Phase['type']; start: string; rate: number; weight: number; goalWeight: number | null; cycling?: boolean; blockStart?: string | null }): Omit<Phase, 'user_id' | 'updated_at' | 'deleted_at'> {
   return {
     id: uid(), type: o.goal, start_date: o.start, end_date: null, rate_kg_week: o.rate, start_weight: o.weight, goal_weight: o.goalWeight,
     bmr: plan.bmr, tdee: plan.tdee, kcal: plan.kcal, protein_g: plan.protein, carbs_g: plan.carbs, fat_g: plan.fat,
     protein_per_kg: plan.proteinPerKg, fat_pct: plan.fatPct, activity_factor: plan.activityFactor, training_kcal: plan.trainingKcal,
-    cycling: false, status: 'activa', notes: null,
+    cycling: o.cycling ?? true, status: 'activa', notes: null, block_start: o.blockStart ?? o.start,
   };
+}
+
+/** Inicio del bloque de una fase (los ajustes semanales no lo cambian). */
+export const blockStartOf = (p: Phase) => p.block_start ?? p.start_date;
+
+/**
+ * Ajuste semanal aceptado: fase nueva desde hoy con las calorías corregidas. Los carbohidratos absorben el cambio
+ * (la proteína y la grasa se mantienen), y las fechas pasadas conservan su objetivo.
+ */
+export function adjustedPhase(p: Phase, delta: number, start: string): Omit<Phase, 'user_id' | 'updated_at' | 'deleted_at'> {
+  const carbs = Math.max(0, Math.round(p.carbs_g + delta / 4));
+  const { user_id: _u, updated_at: _t, deleted_at: _d, ...rest } = p;
+  return {
+    ...rest, id: uid(), start_date: start, end_date: null, status: 'activa', kcal: p.kcal + delta, carbs_g: carbs,
+    block_start: blockStartOf(p), notes: `Ajuste semanal: ${delta > 0 ? '+' : '−'}${Math.abs(delta)} kcal`,
+  };
+}
+
+/** Decisión de la revisión semanal; `anchor` es el domingo de esa revisión. */
+export async function saveCheckin(anchor: string, c: Pick<WeeklyCheckin, 'phase_id' | 'status' | 'delta_kcal' | 'data'>) {
+  await put('weekly_checkins', { id: `${getUid()}:${anchor}`, week_start: anchor, ...c });
+}
+
+export async function saveMeasurement(m: Omit<BodyMeasurement, 'id' | 'user_id' | 'updated_at' | 'deleted_at'>) {
+  await put('body_measurements', { id: `${getUid()}:${m.date}`, ...m });
 }
 
 /** Cierra las fases abiertas el día anterior a `start` y guarda la nueva. */

@@ -14,6 +14,7 @@ Tiempo estimado: 20 minutos. Los pasos marcados con **(tú)** requieren tu cuent
 En **SQL Editor → New query**, ejecuta en este orden:
 1. Todo el contenido de `supabase/migrations/0001_forus.sql`. Crea las 10 tablas, la seguridad por usuario y el registro cerrado.
 2. `supabase/local/autorizar-correos.sql`: autoriza tu correo y el de Vanessa. Este archivo no se sube a GitHub.
+3. `supabase/migrations/0002_etapa4.sql` (Etapa 4): medidas, fotos (bucket privado), revisión semanal. **Va antes de publicar el código de la Etapa 4.**
 
 Resultado esperado: "Success. No rows returned".
 

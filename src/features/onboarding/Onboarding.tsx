@@ -8,6 +8,8 @@ import { ACTIVITY, GOALS, computePlan, paceOptions } from '../../core/plan';
 import { ageFrom, todayISO, WEEKDAYS, WEEKDAYS_SHORT } from '../../core/dates';
 import { EQUIPMENT_OPTIONS, TEMPLATES, allowedEquipment, routineFromTemplate, suggestTemplate, uid } from '../../core/templates';
 import { buildSchedule, defaultRirPlan } from '../../core/schedule';
+import { classifyDay, cycleText, kindPreview, weekKindsFrom } from '../../core/cycling';
+import { MEAL_SHARE } from '../../core/meals';
 import { DEFAULT_PLATES } from '../../core/strength';
 import { Icon } from '../../ui/Icon';
 import { Logo } from '../../ui/Logo';
@@ -28,7 +30,6 @@ const LEVELS: [Level, string, string][] = [
   ['avanzado', 'Avanzado', 'Más de 3 años, tu progreso ya es lento'],
 ];
 const GOAL_ICON: Record<Goal, string> = { volumen: 'trend', definicion: 'flame', recomposicion: 'repeat', mantencion: 'target' };
-const MEAL_SHARE: Record<string, number> = { desayuno: 0.22, colacion: 0.1, almuerzo: 0.32, once: 0.16, cena: 0.2, 'colacion-noche': 0.08 };
 
 export function Onboarding({ profile, uid: userId, cat }: { profile: Profile | null; uid: string; cat: Catalog }) {
   const [step, setStep] = useState(1);
@@ -55,6 +56,15 @@ export function Onboarding({ profile, uid: userId, cat }: { profile: Profile | n
   const tpl = TEMPLATES.find((t) => t.id === f.templateId) ?? suggestion.template;
   const dayCount = f.templateId ? Math.min(Math.max(1, f.days.length), tpl.plan.length) : suggestion.dayCount;
   const meals = mealsForCount(f.meals);
+  // Vista previa del ciclado: kcal de cada día según lo que toca entrenar.
+  const cycle = useMemo(() => {
+    const routine = routineFromTemplate(tpl, allowedEquipment(f.equipment), (id) => cat.exById.get(id)?.e, dayCount);
+    const kinds = routine.days.map((d) => classifyDay(d.exercises, (id) => cat.exById.get(id)));
+    const week = weekKindsFrom(buildSchedule(f.days, routine), kinds);
+    const { info, rows } = kindPreview(f.goal, { kcal: plan.kcal, protein: plan.protein, carbs: plan.carbs, fat: plan.fat }, week, f.weight);
+    const byKind = new Map(info.scale ? rows.map((r) => [r.kind, r.macros]) : []);
+    return { kinds, rest: byKind.get('descanso') ?? null, byKind, info };
+  }, [tpl, f.equipment, f.days, f.weight, f.goal, dayCount, plan, cat]);
 
   const valid: Record<number, string | null> = {
     1: !f.name.trim() ? 'Escribe tu nombre.' : !f.consent ? 'Necesitamos tu autorización para calcular tu plan.' : null,
@@ -278,11 +288,24 @@ export function Onboarding({ profile, uid: userId, cat }: { profile: Profile | n
               <div className="chips" style={{ marginBottom: 12 }}>
                 {TEMPLATES.map((t) => <button key={t.id} type="button" className={t.id === tpl.id ? 'on' : ''} onClick={() => set('templateId', t.id)}>{t.name}</button>)}
               </div>
-              {[...f.days].sort().map((d, i) => (
-                <div key={d} className="row between small" style={{ padding: '6px 0', borderTop: i ? '1px solid var(--border)' : 0 }}>
-                  <span className="muted">{WEEKDAYS[d]}</span><b>{tpl.plan[i % dayCount]?.name}</b>
+              {[...f.days].sort().map((d, i) => {
+                const kind = cycle.kinds[i % dayCount];
+                const m = kind ? cycle.byKind.get(kind) : null;
+                return (
+                  <div key={d} className="row between small" style={{ padding: '6px 0', borderTop: i ? '1px solid var(--border)' : 0 }}>
+                    <span className="muted">{WEEKDAYS[d]}</span>
+                    <span><b>{tpl.plan[i % dayCount]?.name}</b>{m && <span className="muted"> · {fmt(m.kcal)} kcal</span>}</span>
+                  </div>
+                );
+              })}
+              {cycle.rest && (
+                <div className="row between small" style={{ padding: '6px 0', borderTop: '1px solid var(--border)' }}>
+                  <span className="muted">Días de descanso</span><span className="muted">{fmt(cycle.rest.kcal)} kcal</span>
                 </div>
-              ))}
+              )}
+              <p className="xs muted" style={{ marginTop: 8 }}>
+                {cycle.info.scale ? <>Las calorías cambian según lo que entrenas, con el mismo promedio de {fmt(plan.kcal)} kcal y la misma proteína todos los días. </> : null}{cycleText(f.goal, cycle.info)}
+              </p>
               <p className="xs muted" style={{ marginTop: 8 }}>Mesociclo de 6 semanas: el esfuerzo sube de a poco (RIR 3 → 1) y la semana 6 es de descarga. Podrás editar todo después.</p>
             </div>
 

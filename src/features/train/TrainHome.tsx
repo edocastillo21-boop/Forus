@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router';
 import { useApp, useToday } from '../../data/app';
 import { useTodayPlan } from '../../data/today';
+import { useTargets } from '../../data/targets';
 import { fmt } from '../../data/logic';
 import { relativeDay, WEEKDAYS } from '../../core/dates';
 import { plannedForDay } from '../../core/schedule';
@@ -11,6 +12,7 @@ import { ActiveSessionBanner, TodayWorkoutCard, elapsedText } from './today';
 export function TrainHome() {
   const today = useToday();
   const tp = useTodayPlan(today);
+  const targetFor = useTargets(today);
   const nav = useNavigate();
   const { cat } = useApp();
   const recent = tp.sessions.filter((s) => s.status === 'terminada').sort((a, b) => b.started_at.localeCompare(a.started_at)).slice(0, 3);
@@ -26,7 +28,7 @@ export function TrainHome() {
       </div>
 
       <ActiveSessionBanner session={tp.active} />
-      <TodayWorkoutCard tp={tp} today={today} />
+      <TodayWorkoutCard tp={tp} today={today} target={targetFor(today)} />
 
       {meso && routine && (
         <button className="card" style={{ width: '100%', textAlign: 'left' }} onClick={() => nav(`/entrenar/rutina/${routine.id}`)}>

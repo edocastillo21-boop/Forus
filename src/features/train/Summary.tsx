@@ -1,9 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Navigate, useNavigate, useParams, useSearchParams } from 'react-router';
-import { useApp } from '../../data/app';
-import { useFoodLogs, usePhases, useSession, useSessions } from '../../data/hooks';
+import { useApp, useToday } from '../../data/app';
+import { useFoodLogs, useSession, useSessions } from '../../data/hooks';
 import { remove } from '../../data/store';
-import { fmt, fmtKg, mealsFor, phaseFor, totals } from '../../data/logic';
+import { fmt, fmtKg, mealsFor, totals } from '../../data/logic';
+import { useTargets } from '../../data/targets';
+import { mealTargets } from '../../core/meals';
+import { KIND_INFO } from '../../core/cycling';
 import { INCREMENT, describeSets, suggestSets } from '../../core/progression';
 import { longDate } from '../../core/dates';
 import { Icon } from '../../ui/Icon';
@@ -16,9 +19,9 @@ export function Summary() {
   const [params] = useSearchParams();
   const session = useSession(id);
   const sessions = useSessions();
-  const phases = usePhases();
   const logs = useFoodLogs(session?.date ?? '');
   const { cat, profile } = useApp();
+  const targetFor = useTargets(useToday());
   const nav = useNavigate();
   const toast = useToast();
   const fresh = params.get('nuevo') === '1';
@@ -42,13 +45,16 @@ export function Summary() {
   if (!session || session.deleted_at) return <Navigate to="/entrenar" replace />;
   if (session.status === 'en_curso') return <Navigate to={`/entrenar/sesion/${session.id}`} replace />;
 
-  const ph = phaseFor(phases, session.date);
+  const tg = targetFor(session.date);
   const t = totals(logs);
-  const kcalLeft = ph ? ph.kcal - t.kcal : null;
-  const protLeft = ph ? ph.protein_g - t.protein : null;
+  const kcalLeft = tg ? tg.kcal - t.kcal : null;
+  const protLeft = tg ? tg.protein - t.protein : null;
   const meals = mealsFor(profile);
   const hhmm = new Date().toTimeString().slice(0, 5);
-  const nextMeal = meals.find((m) => m.time >= hhmm) ?? meals[meals.length - 1];
+  const perMeal = tg ? mealTargets(tg, meals, tg.trainingTime) : [];
+  const post = perMeal.find((m) => m.tag === 'post');
+  const nextMeal = post && post.time >= hhmm ? post : meals.find((m) => m.time >= hhmm) ?? meals[meals.length - 1];
+  const nextGoal = perMeal.find((m) => m.id === nextMeal.id);
   const volDiff = prev && prev.volume_kg ? ((session.volume_kg - prev.volume_kg) / prev.volume_kg) * 100 : null;
 
   return (
@@ -86,15 +92,16 @@ export function Summary() {
         </div>
       )}
 
-      {fresh && ph && kcalLeft != null && protLeft != null && (
+      {fresh && tg && kcalLeft != null && protLeft != null && (
         <div className="card">
           <div className="row" style={{ alignItems: 'flex-start' }}>
             <Icon name="food" style={{ color: 'var(--primary-text)', marginTop: 2 }} />
             <div className="grow">
               <b>Post-entreno</b>
               <p className="small muted" style={{ marginTop: 2 }}>
-                {kcalLeft > 0 ? <>Te quedan <b style={{ color: 'var(--text)' }}>{fmt(kcalLeft)} kcal</b> y <b style={{ color: 'var(--text)' }}>{fmt(Math.max(0, protLeft))} g de proteína</b> hoy.</> : 'Ya llegaste a tus calorías de hoy.'}
-                {protLeft > 25 ? ' Una comida con 30–40 g de proteína y carbohidratos te ayuda a recuperarte.' : ''}
+                {tg.cycled && tg.delta > 0 && <>Por ser {KIND_INFO[tg.kind].label.toLowerCase()}, hoy tienes {fmt(tg.delta)} g extra de carbohidratos. </>}
+                {kcalLeft > 0 ? <>Te quedan <b style={{ color: 'var(--text)' }}>{fmt(kcalLeft)} kcal</b> y <b style={{ color: 'var(--text)' }}>{fmt(Math.max(0, protLeft))} g de proteína</b>.</> : 'Ya llegaste a tus calorías de hoy.'}
+                {kcalLeft > 0 && nextGoal ? <> En {nextMeal.name.toLowerCase()} apunta a ~{fmt(Math.max(20, Math.min(nextGoal.protein + 10, protLeft)))} g de proteína y ~{fmt(Math.max(0, Math.min(nextGoal.carbs, tg.carbs - t.carbs)))} g de carbohidratos para recuperarte.</> : ''}
               </p>
             </div>
           </div>

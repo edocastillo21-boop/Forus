@@ -23,6 +23,8 @@ export interface Prefs {
   meals?: MealSlot[];
   favorites?: string[];
   waterGoal?: number;
+  /** Notificación al terminar el descanso (requiere permiso del navegador) */
+  restNotify?: boolean;
 }
 
 export interface Profile extends Base {
@@ -68,6 +70,8 @@ export interface Phase extends Base {
   cycling: boolean;
   status: 'activa' | 'terminada';
   notes: string | null;
+  /** Inicio del bloque: los ajustes semanales crean una fase nueva que conserva esta fecha */
+  block_start?: string | null;
 }
 
 /** C = calentamiento, E = efectiva, D = drop set, RP = rest-pause */
@@ -196,6 +200,30 @@ export interface DayLog extends Base { date: string; water_ml: number; note: str
 
 export interface BodyWeight extends Base { date: string; weight_kg: number; body_fat: number | null }
 
+export interface BodyMeasurement extends Base {
+  date: string;
+  waist: number | null;
+  hip: number | null;
+  chest: number | null;
+  arm: number | null;
+  thigh: number | null;
+  neck: number | null;
+  note: string | null;
+}
+
+export type Pose = 'frente' | 'perfil' | 'espalda';
+export interface ProgressPhoto extends Base { date: string; pose: Pose; path: string; width: number | null; height: number | null }
+
+export interface WeeklyCheckin extends Base {
+  /** Día de la revisión (domingo). */
+  week_start: string;
+  phase_id: string | null;
+  /** aplicado = se aceptó el ajuste · esperar = se pospuso · visto = solo informativo */
+  status: 'aplicado' | 'esperar' | 'visto';
+  delta_kcal: number;
+  data: Record<string, unknown>;
+}
+
 export interface TableMap {
   profiles: Profile;
   phases: Phase;
@@ -207,6 +235,12 @@ export interface TableMap {
   saved_meals: SavedMeal;
   day_logs: DayLog;
   body_weights: BodyWeight;
+  body_measurements: BodyMeasurement;
+  progress_photos: ProgressPhoto;
+  weekly_checkins: WeeklyCheckin;
 }
 export type TableName = keyof TableMap;
-export const TABLES: TableName[] = ['profiles', 'phases', 'routines', 'mesocycles', 'workout_sessions', 'foods', 'food_log_entries', 'saved_meals', 'day_logs', 'body_weights'];
+export const TABLES: TableName[] = [
+  'profiles', 'phases', 'routines', 'mesocycles', 'workout_sessions', 'foods', 'food_log_entries', 'saved_meals', 'day_logs', 'body_weights',
+  'body_measurements', 'progress_photos', 'weekly_checkins',
+];

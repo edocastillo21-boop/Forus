@@ -4,6 +4,7 @@ import { useSyncExternalStore } from 'react';
 import { supabase } from './supabase';
 import { getDb, setWriteListener } from './store';
 import { TABLES } from './types';
+import { syncPhotos } from './photos';
 
 export type SyncState = 'local' | 'idle' | 'syncing' | 'offline' | 'error';
 let state: SyncState = supabase ? 'idle' : 'local';
@@ -27,7 +28,10 @@ export function scheduleSync(delay = 700) {
 }
 
 async function refreshPending() {
-  try { pending = await getDb().outbox.count(); } catch { pending = 0; }
+  try {
+    const db = getDb();
+    pending = (await db.outbox.count()) + (await db.blobs.where('state').anyOf('subir', 'borrar').count());
+  } catch { pending = 0; }
   emit();
 }
 
@@ -80,6 +84,7 @@ export async function syncNow(): Promise<void> {
   try {
     await push();
     await pull();
+    await syncPhotos();
     lastError = null;
     retryMs = 5000;
     set('idle');

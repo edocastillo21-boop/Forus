@@ -13,6 +13,7 @@ import { Icon } from '../../ui/Icon';
 import { Seg, Sheet, Spinner, Stepper, useToast, vibrate } from '../../ui/kit';
 import { ExercisePicker, PlatesSheet, Thumb } from '../../ui/shared';
 import { beep, primeAudio } from '../../ui/audio';
+import { closeNotifications, notify } from '../../ui/notify';
 import { TechniqueContent } from './Library';
 
 export function SessionScreen() {
@@ -50,7 +51,7 @@ function useWakeLock() {
 }
 
 function SessionView({ initial }: { initial: WorkoutSession }) {
-  const { cat } = useApp();
+  const { cat, profile } = useApp();
   const nav = useNavigate();
   const toast = useToast();
   const sessions = useSessions();
@@ -65,6 +66,21 @@ function SessionView({ initial }: { initial: WorkoutSession }) {
   const [finish, setFinish] = useState(false);
   const [rest, setRest] = useState<Rest | null>(() => readRest(initial.id));
   useWakeLock();
+
+  // Aviso por notificación si el descanso termina con la app en segundo plano (pantalla apagada u otra app).
+  const restNotify = !!profile.prefs?.restNotify;
+  const openName = cat.exById.get(s.exercises.find((e) => e.uid === open)?.exId ?? '')?.n;
+  useEffect(() => {
+    if (!rest || !restNotify) return;
+    const ms = rest.end - Date.now();
+    if (ms <= 0) return;
+    const t = setTimeout(() => {
+      if (document.visibilityState === 'hidden') void notify('Descanso terminado', openName ? `Sigue: ${openName}` : 'A la siguiente serie', 'forus-rest');
+    }, ms);
+    const onVis = () => { if (document.visibilityState === 'visible') void closeNotifications('forus-rest'); };
+    document.addEventListener('visibilitychange', onVis);
+    return () => { clearTimeout(t); document.removeEventListener('visibilitychange', onVis); };
+  }, [rest, restNotify, openName]);
 
   // Guardado: estado local inmediato + escritura en la base con una pequeña espera.
   const latest = useRef(s);

@@ -1,7 +1,7 @@
 // Consultas reactivas a la base local: la interfaz se actualiza sola cuando cambian los datos.
 import { useLiveQuery } from 'dexie-react-hooks';
 import { getDb, getUid } from './store';
-import type { BodyWeight, CustomFood, DayLog, FoodLog, Mesocycle, Phase, Profile, Routine, SavedMeal, WorkoutSession } from './types';
+import type { BodyMeasurement, BodyWeight, CustomFood, DayLog, FoodLog, Mesocycle, Phase, Profile, ProgressPhoto, Routine, SavedMeal, WeeklyCheckin, WorkoutSession } from './types';
 
 const live = <T>(r: T[]) => r.filter((x) => !(x as { deleted_at?: string | null }).deleted_at);
 
@@ -22,3 +22,6 @@ export const useCustomFoods = () => useLiveQuery(async () => live(await getDb().
 export const useSavedMeals = () => useLiveQuery(async () => live(await getDb().saved_meals.toArray()), [], [] as SavedMeal[]);
 export const useDayLog = (date: string) => useLiveQuery(async () => (await getDb().day_logs.get(`${getUid()}:${date}`)) ?? null, [date], null as DayLog | null);
 export const useWeights = () => useLiveQuery(async () => live(await getDb().body_weights.toArray()).sort((a, b) => a.date.localeCompare(b.date)), [], [] as BodyWeight[]);
+export const useMeasurements = () => useLiveQuery(async () => live(await getDb().body_measurements.toArray()).sort((a, b) => a.date.localeCompare(b.date)), [], [] as BodyMeasurement[]);
+export const usePhotos = () => useLiveQuery(async () => live(await getDb().progress_photos.toArray()).sort((a, b) => b.date.localeCompare(a.date) || a.pose.localeCompare(b.pose)), [], [] as ProgressPhoto[]);
+export const useCheckin = (anchor: string) => useLiveQuery(async () => (await getDb().weekly_checkins.get(`${getUid()}:${anchor}`)) ?? null, [anchor], undefined as WeeklyCheckin | null | undefined);

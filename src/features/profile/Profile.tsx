@@ -1,9 +1,13 @@
 import { useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router';
 import Dexie from 'dexie';
 import { useApp, useToday } from '../../data/app';
-import { usePhases, useWeights } from '../../data/hooks';
-import { download, exportAll, phaseFromPlan, planFor, startPhase, updatePrefs } from '../../data/actions';
-import { currentPhase, fmt, fmtKg, mealsFor } from '../../data/logic';
+import { useMesocycles, usePhases, useRoutines, useWeights } from '../../data/hooks';
+import { blockStartOf, download, exportAll, phaseFromPlan, planFor, startPhase, updatePrefs } from '../../data/actions';
+import { activeMeso, currentPhase, fmt, fmtKg, mealsFor } from '../../data/logic';
+import { purgeCloudPhotos } from '../../data/photos';
+import { KIND_INFO, classifyDay, cycleText, kindPreview, weekKindsFrom, type DayKind } from '../../core/cycling';
+import { askNotifications, notificationsSupported } from '../../ui/notify';
 import { closeStore, update } from '../../data/store';
 import { LOCAL_MODE, supabase } from '../../data/supabase';
 import { stopSync, syncNow, useSyncState } from '../../data/sync';
@@ -16,25 +20,41 @@ import { movingAverage } from '../../core/trend';
 import { Icon } from '../../ui/Icon';
 import { Opt, Seg, Sheet, Stepper, Switch, useToast } from '../../ui/kit';
 
-export const VERSION = '0.3.0';
+export const VERSION = '0.4.0';
 type Panel = 'datos' | 'entreno' | 'comida' | 'comidas' | 'discos' | 'fase' | 'borrar' | null;
 
 export function ProfileScreen() {
-  const { profile, email, uid: userId, signOut } = useApp();
+  const { profile, email, uid: userId, signOut, cat } = useApp();
   const today = useToday();
   const toast = useToast();
   const phases = usePhases();
   const weights = useWeights();
+  const mesos = useMesocycles();
+  const routines = useRoutines();
   const sync = useSyncState();
-  const [panel, setPanel] = useState<Panel>(null);
+  const [params, setParams] = useSearchParams();
+  const [panel, setPanelState] = useState<Panel>(() => (params.get('fase') ? 'fase' : null));
+  const setPanel = (p: Panel) => { setPanelState(p); if (params.get('fase')) setParams({}, { replace: true }); };
   const ph = currentPhase(phases, today);
+  // Tipo de día de cada día de la semana según la rutina activa (para mostrar el ciclado).
+  const weekKinds = useMemo<DayKind[] | null>(() => {
+    const meso = activeMeso(mesos);
+    const routine = meso && routines.find((r) => r.id === meso.routine_id);
+    if (!meso || !routine) return null;
+    return weekKindsFrom(meso.schedule, routine.days.map((d) => classifyDay(d.exercises, (id) => cat.exById.get(id))));
+  }, [mesos, routines, cat]);
   const trend = useMemo(() => movingAverage(weights.map((w) => ({ date: w.date, weight: w.weight_kg }))), [weights]);
   const weightNow = trend.length ? Math.round(trend[trend.length - 1].avg * 10) / 10 : ph?.start_weight ?? 70;
   const light = profile.prefs?.theme === 'light';
 
   async function recalc(p: Profile = profile, goal: Goal = ph?.type ?? profile.goal, rate = ph?.rate_kg_week ?? 0) {
     const plan = planFor(p, weightNow, goal, rate, ph?.goal_weight ?? null);
-    await startPhase(phases, phaseFromPlan(plan, { goal, start: today, rate, weight: weightNow, goalWeight: ph?.goal_weight ?? null }), addDays(today, -1));
+    // Recalcular con el mismo objetivo mantiene el bloque (semana N de la fase); un objetivo nuevo parte uno nuevo.
+    const same = !!ph && ph.type === goal && ph.rate_kg_week === rate;
+    await startPhase(phases, phaseFromPlan(plan, {
+      goal, start: today, rate, weight: same && ph ? ph.start_weight : weightNow, goalWeight: ph?.goal_weight ?? null,
+      cycling: ph?.cycling ?? true, blockStart: same && ph ? blockStartOf(ph) : today,
+    }), addDays(today, -1));
     if (goal !== p.goal) await update('profiles', p.id, { goal });
     toast(`Plan actualizado: ${fmt(plan.kcal)} kcal · ${plan.protein} g de proteína`);
   }
@@ -72,7 +92,16 @@ export function ProfileScreen() {
             <div><div className="num" style={{ fontSize: 20, color: 'var(--carb)' }}>{ph.carbs_g}</div><div className="xs muted">carbos g</div></div>
             <div><div className="num" style={{ fontSize: 20, color: 'var(--fat)' }}>{ph.fat_g}</div><div className="xs muted">grasa g</div></div>
           </div>
-          <div className="row" style={{ marginTop: 12 }}>
+          <div className="xs muted" style={{ marginTop: 8, textAlign: 'center' }}>Promedio diario de la semana</div>
+          {ph.cycling && weekKinds && <CyclePreview goal={ph.type} phase={ph} kinds={weekKinds} weight={weightNow} />}
+          <div className="row" style={{ marginTop: 12, padding: '10px 0', borderTop: '1px solid var(--primary-line)' }}>
+            <span className="grow">
+              <b className="small">Ciclado de carbohidratos</b>
+              <div className="xs muted">{ph.cycling && weekKinds ? cycleText(ph.type, kindPreview(ph.type, { kcal: ph.kcal, protein: ph.protein_g, carbs: ph.carbs_g, fat: ph.fat_g }, weekKinds, weightNow).info) : 'Más carbos los días de pierna, menos en descanso; mismo promedio semanal. La intensidad se ajusta a tu objetivo.'}</div>
+            </span>
+            <Switch on={ph.cycling} onChange={async (v) => { await update('phases', ph.id, { cycling: v }); toast(v ? 'Ciclado activado' : 'Ciclado apagado: mismo objetivo todos los días'); }} label="Ciclado de carbohidratos" />
+          </div>
+          <div className="row" style={{ marginTop: 4 }}>
             <button className="btn btn-soft btn-sm grow" onClick={() => void recalc()}><Icon name="refresh" size={16} />Recalcular ({fmtKg(weightNow)} kg)</button>
             <button className="btn btn-primary btn-sm grow" onClick={() => setPanel('fase')}>Cambiar objetivo</button>
           </div>
@@ -90,6 +119,16 @@ export function ProfileScreen() {
           <span className="grow"><b>Modo oscuro</b></span>
           <Switch on={!light} onChange={(v) => void updatePrefs(profile, { theme: v ? 'dark' : 'light' })} label="Modo oscuro" />
         </div>
+        {notificationsSupported() && (
+          <div className="li">
+            <span className="ico"><Icon name="bell" /></span>
+            <span className="grow"><b>Aviso de fin de descanso</b><div className="xs muted">Notificación si la app queda en segundo plano</div></span>
+            <Switch on={!!profile.prefs?.restNotify && Notification.permission === 'granted'} onChange={async (v) => {
+              if (v && !(await askNotifications())) { toast('El navegador no dio permiso: actívalo en los ajustes del sitio'); return; }
+              await updatePrefs(profile, { restNotify: v });
+            }} label="Aviso de fin de descanso" />
+          </div>
+        )}
       </div>
 
       <div className="list">
@@ -107,11 +146,11 @@ export function ProfileScreen() {
       </div>
 
       <p className="xs faint" style={{ textAlign: 'center', margin: '18px 0 0' }}>
-        Forus {VERSION} · Alimentos: USDA FoodData Central y recetas chilenas calculadas · Ejercicios: free-exercise-db.<br />
+        Forus {VERSION} · Alimentos: USDA FoodData Central y recetas chilenas calculadas · Productos con código de barras: Open Food Facts (ODbL) · Ejercicios: free-exercise-db.<br />
         Las recomendaciones son estimaciones y no reemplazan a un profesional de la salud.
       </p>
 
-      {panel === 'fase' && ph && <PhaseSheet profile={profile} weight={weightNow} current={ph.type} onClose={() => setPanel(null)} onSave={async (g, r) => { setPanel(null); await recalc(profile, g, r); }} />}
+      {panel === 'fase' && ph && <PhaseSheet profile={profile} weight={weightNow} current={ph.type} kinds={ph.cycling ? weekKinds : null} onClose={() => setPanel(null)} onSave={async (g, r) => { setPanel(null); await recalc(profile, g, r); }} />}
       {panel === 'datos' && <DataSheet profile={profile} onClose={() => setPanel(null)} onSave={(p) => saveProfile(p, true)} />}
       {panel === 'entreno' && <TrainingSheet profile={profile} onClose={() => setPanel(null)} onSave={(p) => saveProfile(p, true)} />}
       {panel === 'comida' && <FoodSheet profile={profile} onClose={() => setPanel(null)} onSave={(p) => saveProfile(p)} />}
@@ -132,7 +171,19 @@ function Item({ icon, title, sub, onClick, danger }: { icon: string; title: stri
   );
 }
 
-function PhaseSheet({ profile, weight, current, onClose, onSave }: { profile: Profile; weight: number; current: Goal; onClose: () => void; onSave: (g: Goal, rate: number) => void }) {
+function CyclePreview({ goal, phase, kinds, weight }: { goal: Goal; phase: { kcal: number; protein_g: number; carbs_g: number; fat_g: number }; kinds: DayKind[]; weight: number }) {
+  const { info, rows } = kindPreview(goal, { kcal: phase.kcal, protein: phase.protein_g, carbs: phase.carbs_g, fat: phase.fat_g }, kinds, weight);
+  if (rows.length < 2 || !info.scale) return null;
+  return (
+    <div className="row" style={{ gap: 6, marginTop: 10, flexWrap: 'wrap', justifyContent: 'center' }}>
+      {rows.map(({ kind, macros }) => (
+        <span key={kind} className="chip" style={{ fontSize: 12 }}>{KIND_INFO[kind].short} <b className="num" style={{ fontSize: 15 }}>{fmt(macros.kcal)}</b></span>
+      ))}
+    </div>
+  );
+}
+
+function PhaseSheet({ profile, weight, current, kinds, onClose, onSave }: { profile: Profile; weight: number; current: Goal; kinds: DayKind[] | null; onClose: () => void; onSave: (g: Goal, rate: number) => void }) {
   const [goal, setGoal] = useState<Goal>(current);
   const [idx, setIdx] = useState(1);
   const pace = paceOptions(goal, profile.experience, weight);
@@ -152,6 +203,17 @@ function PhaseSheet({ profile, weight, current, onClose, onSave }: { profile: Pr
         <div><div className="num" style={{ fontSize: 20 }}>{plan.carbs}</div><div className="xs muted">carbos g</div></div>
         <div><div className="num" style={{ fontSize: 20 }}>{plan.fat}</div><div className="xs muted">grasa g</div></div>
       </div>
+      {kinds && (() => {
+        const base = { kcal: plan.kcal, protein_g: plan.protein, carbs_g: plan.carbs, fat_g: plan.fat };
+        const { info } = kindPreview(goal, { kcal: plan.kcal, protein: plan.protein, carbs: plan.carbs, fat: plan.fat }, kinds, weight);
+        return (
+          <div style={{ marginTop: -6, marginBottom: 14 }}>
+            {info.scale > 0 && <div className="xs muted" style={{ textAlign: 'center' }}>Con tu rutina, kcal por tipo de día:</div>}
+            <CyclePreview goal={goal} phase={base} kinds={kinds} weight={weight} />
+            <p className="xs muted" style={{ marginTop: 8, textAlign: 'center' }}>{cycleText(goal, info)}</p>
+          </div>
+        );
+      })()}
       {plan.warnings.map((w) => <div key={w} className="hint warn" style={{ marginBottom: 10 }}><Icon name="info" size={18} /><span>{w}</span></div>)}
       <button className="btn btn-primary" onClick={() => onSave(goal, rate)}>Empezar desde hoy</button>
       <p className="xs muted" style={{ marginTop: 8 }}>La fase actual se cierra ayer y queda en tu historial.</p>
@@ -262,6 +324,8 @@ function DeleteSheet({ uid: userId, onClose }: { uid: string; onClose: () => voi
     setErr(null);
     try {
       if (supabase) {
+        // Las fotos viven en Storage y no se borran en cascada: primero se eliminan.
+        await purgeCloudPhotos(userId);
         const { error } = await supabase.rpc('delete_my_account');
         if (error) throw error;
         stopSync();
@@ -276,7 +340,7 @@ function DeleteSheet({ uid: userId, onClose }: { uid: string; onClose: () => voi
   return (
     <Sheet open onClose={onClose} title={LOCAL_MODE ? 'Borrar datos' : 'Eliminar mi cuenta'}>
       <p className="small muted" style={{ marginBottom: 12 }}>
-        {LOCAL_MODE ? 'Se borra todo lo registrado en este dispositivo.' : 'Se borran tu cuenta y todos tus datos (entrenamientos, comidas, pesajes) de la nube y de este dispositivo.'} No se puede deshacer. Si quieres una copia, primero usa "Exportar mis datos".
+        {LOCAL_MODE ? 'Se borra todo lo registrado en este dispositivo.' : 'Se borran tu cuenta y todos tus datos (entrenamientos, comidas, pesajes, medidas y fotos) de la nube y de este dispositivo.'} No se puede deshacer. Si quieres una copia, primero usa "Exportar mis datos".
       </p>
       <label className="field"><span>Escribe ELIMINAR para confirmar</span><input className="input" value={text} onChange={(e) => setText(e.target.value)} autoCapitalize="characters" /></label>
       {err && <div className="hint warn" style={{ marginBottom: 12 }}><Icon name="info" size={18} /><span>{err}</span></div>}

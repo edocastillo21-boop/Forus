@@ -33,12 +33,20 @@ export default defineConfig({
         maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
         navigateFallback: '/index.html',
         cleanupOutdatedCaches: true,
+        // Al tocar la notificación de fin de descanso se vuelve a la app.
+        importScripts: ['sw-notify.js'],
         runtimeCaching: [
           {
             // Catálogos de alimentos y ejercicios: sirve lo guardado y actualiza por detrás.
             urlPattern: ({ url }) => url.pathname.startsWith('/data/'),
             handler: 'StaleWhileRevalidate',
             options: { cacheName: 'forus-data' },
+          },
+          {
+            // Motor del escáner (ZXing, ~1 MB): se descarga la primera vez que se escanea y queda guardado.
+            urlPattern: ({ url }) => url.pathname.endsWith('.wasm'),
+            handler: 'CacheFirst',
+            options: { cacheName: 'forus-wasm', expiration: { maxEntries: 4 } },
           },
           {
             // Imágenes de ejercicios (commit fijado: nunca cambian).
@@ -62,6 +70,7 @@ export default defineConfig({
           react: ['react', 'react-dom', 'react-router'],
           datos: ['dexie', 'dexie-react-hooks'],
           dnd: ['@dnd-kit/core', '@dnd-kit/sortable', '@dnd-kit/utilities'],
+          nube: ['@supabase/supabase-js'],
         },
       },
     },
