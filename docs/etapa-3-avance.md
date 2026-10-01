@@ -1,6 +1,6 @@
 # Forus · Etapa 3 (MVP) — punto de avance
 
-> Actualizado el 30-09-2026. **App construida y probada en modo local.** Falta solo ponerla en línea con el usuario.
+> Actualizado el 01-10-2026. **Etapa 3 terminada y en línea:** https://forus-app.netlify.app
 
 ## Respuestas del usuario a la Etapa 2
 - Compartir entre la pareja: **no**, cada uno ve solo lo suyo.
@@ -61,12 +61,16 @@
 - Superserie: se arma con un interruptor en el ejercicio, no soltando uno sobre otro.
 - Pendiente para la Etapa 4: escáner de código de barras, medidas y fotos, revisión semanal automática, ciclado de carbos, notificación con pantalla bloqueada al terminar el descanso.
 
+## En línea (01-10-2026)
+- **App:** https://forus-app.netlify.app (Netlify, proyecto `forus-app`, equipo "Edu Cas").
+  - Visibilidad cambiada de *Private* (el nuevo valor por defecto de Netlify) a **Public**.
+  - Sello "Powered by Netlify" desactivado.
+- **Código:** GitHub privado `edocastillo21-boop/Forus`, rama `main`. Cada push publica solo en Netlify.
+- **Supabase:** proyecto `Forus`, ref `qsrchanukzoavuyhenrc`, São Paulo.
+  - SQL ejecutado: 10 tablas con RLS y política, 2 correos autorizados, trigger de registro.
+  - Site URL y Redirect URL (`/**`) apuntan a la app. La confirmación por correo está activa.
+  - `.env.production` (publishable key, pública) va en el repositorio.
+
 ## Pendiente
-1. Puesta en línea con el usuario, según `docs/GUIA-DESPLIEGUE.md`:
-   - el usuario crea el proyecto Supabase;
-   - se ejecuta el SQL, con su permiso si se hace desde Chrome;
-   - URL + publishable key en `.env.production`;
-   - `git init` y push a un repositorio privado (pedir permiso para commit y push);
-   - Netlify conectado a GitHub;
-   - Site URL en Supabase.
-2. Mensaje de cierre de la Etapa 3 (decisiones, supuestos, preguntas) y esperar confirmación para la Etapa 4.
+- Primer ingreso de cada uno: "Crear cuenta" una vez → confirmar el correo → onboarding.
+- Esperar la confirmación del usuario para la Etapa 4.
