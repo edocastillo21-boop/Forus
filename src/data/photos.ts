@@ -10,7 +10,8 @@ import { uid } from '../core/templates';
 export const BUCKET = 'progress-photos';
 const MAX_SIDE = 1280;
 
-async function decode(file: Blob): Promise<{ source: CanvasImageSource; w: number; h: number; done: () => void }> {
+/** Abre una imagen respetando la orientación de la foto. Llamar `done()` al terminar. */
+export async function decodeImage(file: Blob): Promise<{ source: CanvasImageSource; w: number; h: number; done: () => void }> {
   if ('createImageBitmap' in window) {
     try {
       const bmp = await createImageBitmap(file, { imageOrientation: 'from-image' });
@@ -26,7 +27,7 @@ async function decode(file: Blob): Promise<{ source: CanvasImageSource; w: numbe
 
 /** Achica a 1280 px por lado y guarda como JPEG (sin EXIF). */
 export async function compressPhoto(file: Blob): Promise<{ blob: Blob; width: number; height: number }> {
-  const img = await decode(file);
+  const img = await decodeImage(file);
   const k = Math.min(1, MAX_SIDE / Math.max(img.w, img.h));
   const width = Math.round(img.w * k);
   const height = Math.round(img.h * k);

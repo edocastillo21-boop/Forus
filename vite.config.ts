@@ -1,11 +1,47 @@
-import { defineConfig } from 'vite';
+/// <reference types="node" />
+import { createReadStream, readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { defineConfig, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import { VitePWA } from 'vite-plugin-pwa';
 
+// Lector de etiquetas (OCR con Tesseract): el motor y el modelo de español se sirven desde la propia app,
+// en una carpeta con la versión para que el caché nunca mezcle versiones. Se descargan solo al usarlo.
+const nm = (p: string) => fileURLToPath(new URL(`./node_modules/${p}`, import.meta.url));
+const OCR_DIR = `/ocr/${JSON.parse(readFileSync(nm('tesseract.js/package.json'), 'utf-8')).version}/`;
+const OCR_FILES: Record<string, string> = {
+  'worker.min.js': 'tesseract.js/dist/worker.min.js',
+  'tesseract-core-relaxedsimd-lstm.wasm.js': 'tesseract.js-core/tesseract-core-relaxedsimd-lstm.wasm.js',
+  'tesseract-core-simd-lstm.wasm.js': 'tesseract.js-core/tesseract-core-simd-lstm.wasm.js',
+  'tesseract-core-lstm.wasm.js': 'tesseract.js-core/tesseract-core-lstm.wasm.js',
+  'spa.traineddata.gz': '@tesseract.js-data/spa/4.0.0_best_int/spa.traineddata.gz',
+};
+
+function ocrFiles(): Plugin {
+  return {
+    name: 'forus-ocr',
+    configureServer(server) {
+      server.middlewares.use(OCR_DIR, (req, res, next) => {
+        const src = OCR_FILES[(req.url ?? '').split('?')[0].slice(1)];
+        if (!src) return next();
+        res.setHeader('Content-Type', src.endsWith('.js') ? 'text/javascript' : 'application/octet-stream');
+        createReadStream(nm(src)).pipe(res);
+      });
+    },
+    generateBundle() {
+      for (const [name, src] of Object.entries(OCR_FILES)) {
+        this.emitFile({ type: 'asset', fileName: OCR_DIR.slice(1) + name, source: readFileSync(nm(src)) });
+      }
+    },
+  };
+}
+
 export default defineConfig({
+  define: { __OCR_DIR__: JSON.stringify(OCR_DIR) },
   plugins: [
     react(),
+    ocrFiles(),
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
@@ -30,12 +66,19 @@ export default defineConfig({
       workbox: {
         // Los catálogos (data/*.json) van precargados: la app funciona sin señal desde la primera apertura.
         globPatterns: ['**/*.{js,css,html,svg,png,woff2,json}'],
+        // El lector de etiquetas (~6 MB) no se precarga: se guarda la primera vez que se usa.
+        globIgnores: ['ocr/**'],
         maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
         navigateFallback: '/index.html',
         cleanupOutdatedCaches: true,
         // Al tocar la notificación de fin de descanso se vuelve a la app.
         importScripts: ['sw-notify.js'],
         runtimeCaching: [
+          {
+            urlPattern: ({ url }) => url.pathname.startsWith('/ocr/'),
+            handler: 'CacheFirst',
+            options: { cacheName: 'forus-ocr', expiration: { maxEntries: 8 } },
+          },
           {
             // Catálogos de alimentos y ejercicios: sirve lo guardado y actualiza por detrás.
             urlPattern: ({ url }) => url.pathname.startsWith('/data/'),

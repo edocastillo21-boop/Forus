@@ -8,3 +8,6 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv;
 }
+
+/** Carpeta del lector de etiquetas (definida en vite.config.ts). */
+declare const __OCR_DIR__: string;

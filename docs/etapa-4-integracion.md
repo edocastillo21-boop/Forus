@@ -84,6 +84,10 @@
   - Android usa el detector nativo;
   - iPhone usa ZXing en WebAssembly. Va dentro de la app (~460 kB comprimido), se descarga solo la primera vez que escaneas y queda guardado.
   - También se puede escribir el número.
+  - **Desde una foto o captura de pantalla** (agregado el 01-10-2026, a pedido del usuario): botón "Leer de una foto o captura" en el escáner. Abre la galería (en iPhone también ofrece tomar la foto). Sirve si la cámara no enfoca, si no hay permiso de cámara o si alguien te manda la foto del código. En el computador también se puede pegar una captura con Ctrl+V.
+    - Prueba la imagen a 2.000 px, a resolución completa (código chico en una foto grande), a 1.000 px y girada (código vertical). Si el detector del teléfono no lo encuentra, intenta con ZXing.
+    - Las capturas PNG con transparencia se leen sobre fondo blanco.
+    - La imagen no se guarda ni se sube: solo se lee el código en el teléfono.
 - **Cómo busca el producto:**
   1. En tus alimentos: si ya lo escaneaste, abre directo la cantidad.
   2. En Open Food Facts (solo se envía el código).
@@ -119,7 +123,35 @@
   - iPhone pausa la app al bloquear, así que la notificación puede llegar tarde;
   - para que sea exacta en iPhone se necesitaría un servidor de notificaciones push (Etapa 5, si lo quieren).
 
+### 8. Tabla nutricional desde una foto o captura (agregado el 01-10-2026)
+- **Pedido del usuario:** leer la tabla nutricional de una foto o captura de pantalla para que se llenen solas las calorías y los macros.
+- **Dónde:** botón "Leer la tabla nutricional de una foto" en "Nuevo alimento". Se llega ahí desde "Mis alimentos → Crear alimento", o desde el escáner cuando el código no está en Open Food Facts.
+- **Qué llena:**
+  - calorías, proteína, carbohidratos, grasa, fibra, azúcares y sodio;
+  - la porción (nombre y gramos);
+  - si la tabla es "por 100 g" o "por porción".
+  - Los campos que vienen de la foto quedan marcados en naranjo y un aviso pide revisarlos antes de guardar. También dice qué no se pudo leer.
+- **Cómo lee:**
+  1. OCR con Tesseract en el mismo teléfono: la imagen no se sube ni se guarda.
+  2. Modo "texto disperso". Con los otros modos, las líneas de la tabla hacían que se saltara la columna de 100 g.
+  3. Las filas se rearman con la posición de cada palabra (`src/core/label.ts`).
+  4. Reconoce cada nutriente y elige la columna "100 g" por los encabezados. Si no los ve, la decide con la porción.
+  5. Si la letra sale chica, vuelve a leer solo la tabla, ampliada. Si no encuentra la tabla, prueba la imagen girada (tablas impresas de costado).
+- **Errores típicos del OCR que corrige:**
+  - comas perdidas ("6,3" → "63"), comparando las dos columnas o las kcal contra los macros;
+  - "(g)" leído como "(9)";
+  - la O leída como 0;
+  - decimales partidos;
+  - kJ/kcal en la misma fila;
+  - sal en vez de sodio.
+- **Formatos:** etiquetas chilenas (100 g | 1 porción), europeas y de EE. UU.
+- **Descarga:**
+  - el lector pesa unos 6 MB (motor + modelo de español) y va dentro de la app, en `/ocr/<versión>/`;
+  - se descarga solo la primera vez que se usa y queda guardado (no se precarga al instalar);
+  - después funciona sin señal.
+
 ## Decisiones y supuestos
+- **Lector de etiquetas en el teléfono y no con IA:** no tiene costo, no necesita claves ni servidor y la foto no sale del teléfono. Es menos preciso que la IA con fotos difíciles (arrugadas, con reflejos o letra muy chica), por eso siempre se revisa antes de guardar. Si no alcanza, en la Etapa 5 se puede sumar la lectura con IA.
 - **Sin tabla `daily_targets`:** el objetivo de cada fecha se calcula al vuelo desde la fase, la rutina y las sesiones (`src/data/targets.ts`). Así no se desincroniza, y mover un entrenamiento lo recalcula solo. Las fases guardan la historia.
 - **Ajuste semanal = fase nueva** y no una edición de la fase actual: los días pasados no cambian de objetivo y la racha no se altera.
 - **El ajuste usa lo que realmente comiste** (balance energético, como MacroFactor) y no solo el peso. Con buena adherencia es más preciso; por eso exige registros completos.
@@ -134,11 +166,14 @@
 ## Archivos
 - **Núcleo (con pruebas):**
   - `src/core/cycling.ts`, `meals.ts`, `review.ts`, `body.ts`;
-  - `src/core/etapa4.test.ts`: 24 pruebas. En total pasan 43.
+  - `src/core/etapa4.test.ts`: 24 pruebas;
+  - `src/core/label.ts` y `label.test.ts` (lector de etiquetas): 14 pruebas;
+  - en total pasan 57.
 - **Datos:**
   - `src/data/targets.ts`: objetivo por fecha;
   - `photos.ts`: fotos y su cola de subida;
   - `off.ts`: Open Food Facts;
+  - `labelOcr.ts`: OCR de la tabla nutricional (prepara la imagen, ampliación, giros);
   - tablas nuevas en `types.ts`, `db.ts` (Dexie v2) y `hooks.ts`.
 - **Pantallas:**
   - `features/home/Review.tsx`;
@@ -147,6 +182,7 @@
   - cambios en Inicio, Diario, Agregar, Alimento propio, Resumen, Sesión, Perfil, Onboarding y Progreso.
 - **Otros:**
   - `public/sw-notify.js`: al tocar la notificación se vuelve a la app;
+  - `vite.config.ts`: copia el motor y el modelo del OCR a `/ocr/<versión>/` y los guarda en caché al usarlos;
   - `supabase/migrations/0002_etapa4.sql`.
 
 ## Probado (navegador, 375 px, modo local)
@@ -158,6 +194,7 @@
   - Nutella 3017620422003 → Open Food Facts → formulario lleno → guardar → cantidad;
   - el segundo escaneo lo encuentra en "mis alimentos";
   - ZXing en WebAssembly decodificó un EAN-13 dibujado en el navegador (sin detector nativo, como en iPhone).
+  - Desde imagen: captura PNG con transparencia, foto 4.032 × 3.024 con el código chico, foto borrosa en JPEG, código vertical y pegado con Ctrl+V → código correcto en 70–470 ms. Imagen sin código → "No encontramos un código…"; archivo dañado → "No pudimos abrir esa imagen…".
 - **Revisión semanal** con 14 días simulados:
   - propuso +150 kcal;
   - "¿Por qué?" mostró el cálculo;
@@ -172,11 +209,20 @@
   - sin errores en la consola.
 - **No probado:** la cámara real, la notificación con el teléfono bloqueado y la subida de fotos a Supabase. Las tres se prueban en el teléfono después de publicar.
 
+- **Tabla nutricional desde una imagen** (generadas en el navegador). Las 7 variantes leyeron los 4 valores principales:
+  - captura limpia, columnas al revés y tabla de costado: los 7 valores y la porción, en 1,3–2,7 s;
+  - foto chueca y borrosa, foto lejana, y foto lejana de costado: los 7 valores (o 6), en 2,2–4,4 s;
+  - captura con letra de 11 px: leyó 5 de 7; dejó proteína en blanco y leyó mal el sodio;
+  - imagen sin tabla: aviso "No pudimos leer la tabla…";
+  - guardar → la cantidad se abre con 539 kcal;
+  - la versión compilada carga el motor desde `/ocr/7.0.0/` y el service worker guarda solo los archivos que ese equipo usa.
+
 ## Publicado (01-10-2026)
 1. Supabase → SQL Editor: se ejecutó `0002_etapa4.sql` ("Run and enable RLS"; resultado "Success").
    - Verificado: 3 tablas con RLS y su política, `phases.block_start`, el bucket `progress-photos` privado de 5 MB y la política `forus_fotos_propias`.
 2. `git push` → Netlify publicó `d15efb5`. Verificado en línea: bundle nuevo, `sw-notify.js` y motor ZXing (`.wasm`) responden 200. La app se actualiza sola al abrirla.
 
 ## Pendiente
+- En los teléfonos, probar el lector de etiquetas con fotos reales, en Android y en iPhone.
 - En los teléfonos, probar la cámara del escáner, la subida de fotos y la notificación de descanso (Android, y en iPhone con la app instalada en la pantalla de inicio).
 - Esperar la confirmación del usuario para la Etapa 5 (funciones avanzadas: coach con IA, plan semanal y lista de compras, alertas de micronutrientes, foto de comida, push exacto en iPhone).

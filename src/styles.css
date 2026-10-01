@@ -224,6 +224,9 @@
   .scan-frame { position: absolute; left: 50%; top: 42%; width: min(78vw, 360px); height: 150px; transform: translate(-50%, -50%); border-radius: 18px; box-shadow: 0 0 0 100vmax rgba(0, 0, 0, .45); border: 2px solid rgba(255, 255, 255, .85); }
   .scan-frame i { position: absolute; left: 8%; right: 8%; top: 50%; height: 2px; background: var(--primary); box-shadow: 0 0 12px var(--primary); animation: scan 1.6s ease-in-out infinite alternate; }
   .scan-bottom { position: absolute; left: 0; right: 0; bottom: 0; padding: 16px 16px calc(20px + env(safe-area-inset-bottom)); background: linear-gradient(transparent, rgba(0, 0, 0, .8) 30%); }
+  .input.from-photo { border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary) inset; }
+  .scan-img { margin-top: 10px; height: 48px; font-size: 15px; background: rgba(255, 255, 255, .14); color: #fff; }
+  .scan-img:disabled { opacity: .7; }
   .scan-bottom .input { background: rgba(255, 255, 255, .12); border-color: rgba(255, 255, 255, .25); color: #fff; }
   .photo-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
   .photo { position: relative; aspect-ratio: 3 / 4; border-radius: 12px; overflow: hidden; background: var(--surface-2); display: grid; place-items: center; color: var(--faint); width: 100%; }
