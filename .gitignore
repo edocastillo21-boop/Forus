@@ -1,0 +1,12 @@
+node_modules
+dist
+dev-dist
+data-src
+supabase/local
+.env
+.env.*
+!.env.example
+!.env.production
+*.log
+.DS_Store
+.claude

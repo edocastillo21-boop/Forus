@@ -1,0 +1,942 @@
+<!doctype html>
+<html lang="es" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Forus prototipo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --page:#060608; --bg:#0C0C0F; --surface:#16161B; --surface-2:#1F1F26; --surface-3:#2B2B34; --border:#25252D;
+  --text:#F4F4F5; --muted:#A1A1AA; --faint:#74747E;
+  --primary:#FF6B1A; --primary-press:#E85A0C; --on-primary:#1A0A00; --primary-soft:rgba(255,107,26,.15); --primary-line:rgba(255,107,26,.45); --primary-text:#FF8A4C;
+  --prot:#38BDF8; --carb:#A3E635; --fat:#C084FC;
+  --ok:#22C55E; --on-ok:#04130A; --ok-soft:rgba(34,197,94,.16); --warn:#FACC15; --warn-soft:rgba(250,204,21,.14); --danger:#F43F5E;
+  --scrim:rgba(0,0,0,.6); --frame:#000; --toast-bg:#F4F4F5; --toast-text:#16161B; --toast-act:#C2410C;
+  color-scheme:dark;
+}
+:root[data-theme="light"]{
+  --page:#DEDEE5; --bg:#F6F6F8; --surface:#FFFFFF; --surface-2:#F0F0F4; --surface-3:#E1E1E8; --border:#E4E4EA;
+  --text:#16161B; --muted:#55555F; --faint:#85858F;
+  --primary:#F26410; --primary-press:#D9530A; --on-primary:#1A0A00; --primary-soft:rgba(242,100,16,.11); --primary-line:rgba(242,100,16,.5); --primary-text:#C2410C;
+  --prot:#0284C7; --carb:#4D7C0F; --fat:#9333EA;
+  --ok:#16A34A; --on-ok:#FFFFFF; --ok-soft:rgba(22,163,74,.12); --warn:#A16207; --warn-soft:rgba(202,138,4,.14); --danger:#E11D48;
+  --scrim:rgba(0,0,0,.35); --frame:#1B1B20; --toast-bg:#16161B; --toast-text:#F4F4F5; --toast-act:#FF8A4C;
+  color-scheme:light;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--page);color:var(--text);font-family:Inter,system-ui,sans-serif;font-size:15px;line-height:1.4;-webkit-font-smoothing:antialiased}
+button,input{font:inherit;color:inherit;background:none;border:0}
+button{cursor:pointer;text-align:inherit}
+b,strong{font-weight:600}
+.ic{fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none;display:block}
+
+.proto{max-width:1080px;margin:0 auto;padding:18px 16px 6px}
+.proto h1{font-size:19px;font-weight:700}
+.proto p{color:var(--muted);font-size:13px;margin-top:2px}
+.jump{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
+.jump button{padding:6px 11px;border-radius:99px;background:var(--surface);font-size:13px;border:1px solid var(--border)}
+.jump button.on{background:var(--primary);color:var(--on-primary);border-color:transparent;font-weight:600}
+.stage{display:flex;gap:32px;justify-content:center;align-items:flex-start;padding:14px 16px 48px;max-width:1080px;margin:0 auto}
+.phone{position:relative;width:390px;height:844px;border:10px solid var(--frame);border-radius:50px;background:var(--bg);overflow:hidden;flex:none;box-shadow:0 30px 70px rgba(0,0,0,.35)}
+.notes{max-width:340px;padding-top:6px}
+.notes h2{font-size:21px;font-weight:700;margin:8px 0 10px;letter-spacing:-.01em}
+.notes ul{padding-left:18px}
+.notes li{margin-bottom:8px;color:var(--muted);font-size:14px}
+.notes .legend{margin-top:18px;padding-top:14px;border-top:1px solid var(--border);font-size:13px;color:var(--faint)}
+@media (max-width:860px){.stage{flex-direction:column;align-items:center}.notes{max-width:410px}}
+@media (max-width:480px){.phone{width:100%;height:100svh;border:0;border-radius:0;box-shadow:none}.stage{padding:0 0 32px}.notes{padding:16px}.sbar{display:none!important}.scr{padding-top:18px!important}}
+
+.sbar{position:absolute;top:0;left:0;right:0;height:46px;display:flex;justify-content:space-between;align-items:center;padding:6px 28px 0;font-size:14px;font-weight:600;z-index:30;background:var(--bg)}
+.scr{position:absolute;inset:0;overflow-y:auto;padding:58px 16px 104px;display:none;scrollbar-width:none}
+.scr::-webkit-scrollbar{display:none}
+.scr.on{display:block}
+.no-tabs .scr{padding-bottom:36px}
+#s-session.scr{padding-bottom:150px}
+.tabbar{position:absolute;left:0;right:0;bottom:0;height:80px;padding:8px 4px 20px;background:var(--surface);border-top:1px solid var(--border);display:grid;grid-template-columns:repeat(5,1fr);z-index:20}
+.no-tabs .tabbar{display:none}
+.tabbar button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font-size:11px;color:var(--faint);font-weight:500;text-align:center}
+.tabbar button.on{color:var(--primary-text);font-weight:600}
+
+.h1{font-size:28px;font-weight:700;letter-spacing:-.02em;line-height:1.15}
+.h2{font-size:18px;font-weight:700;letter-spacing:-.01em}
+.eyebrow{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;font-weight:600}
+.muted{color:var(--muted)} .faint{color:var(--faint)} .small{font-size:13px} .xs{font-size:12px}
+.accent{color:var(--primary-text)}
+.num{font-family:"Barlow Condensed",Inter,sans-serif;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:.01em}
+.row{display:flex;align-items:center;gap:10px} .between{justify-content:space-between} .grow{flex:1;min-width:0} .wrap{flex-wrap:wrap}
+.stack>*+*{margin-top:8px}
+.divider{height:1px;background:var(--border);margin:12px 0}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:16px;margin-bottom:12px}
+.card.hero{background:var(--primary-soft);border-color:var(--primary-line)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+.grid2 .card{margin:0}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}
+
+.btn{display:flex;align-items:center;justify-content:center;gap:8px;height:54px;border-radius:16px;font-weight:700;font-size:16px;width:100%;transition:transform .08s,background .15s;text-align:center}
+.btn:active{transform:scale(.98)}
+.btn-primary{background:var(--primary);color:var(--on-primary)}
+.btn-primary:active{background:var(--primary-press)}
+.btn-soft{background:var(--surface-2);color:var(--text)}
+.btn-sm{height:38px;border-radius:12px;font-size:14px;width:auto;padding:0 14px}
+.icon-btn{width:42px;height:42px;border-radius:14px;display:grid;place-items:center;background:var(--surface-2);flex:none}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:99px;background:var(--surface-2);font-size:13px;font-weight:500}
+.chip.hot{background:var(--primary-soft);color:var(--primary-text)}
+.chip.ok{background:var(--ok-soft);color:var(--ok)}
+.chip.warn{background:var(--warn-soft);color:var(--warn)}
+.badge{display:inline-block;padding:3px 8px;border-radius:99px;background:var(--primary-soft);color:var(--primary-text);font-size:12px;font-weight:600}
+.badge.gray{background:var(--surface-2);color:var(--muted)}
+.link{color:var(--primary-text);font-weight:600;font-size:14px}
+
+.bar{height:8px;border-radius:99px;background:var(--surface-3);overflow:hidden}
+.bar>i{display:block;height:100%;border-radius:inherit;transition:width .4s ease}
+.macro{display:grid;grid-template-columns:92px 1fr;gap:4px 12px;align-items:center;margin-top:10px}
+.macro .lbl{font-size:13px;color:var(--muted)}
+.macro .val{grid-column:2;font-size:12px;color:var(--faint);text-align:right;margin-top:-2px}
+.ring-wrap{position:relative;width:136px;height:136px;flex:none}
+.ring-wrap .c{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
+
+.progress-steps{height:6px;background:var(--surface-3);border-radius:9px;overflow:hidden}
+.progress-steps>i{display:block;height:100%;background:var(--primary)}
+.opt{display:flex;gap:12px;align-items:center;padding:14px;border-radius:18px;background:var(--surface);border:1.5px solid var(--border);width:100%;margin-bottom:10px;text-align:left}
+.opt.on{border-color:var(--primary);background:var(--primary-soft)}
+.opt .ico{width:44px;height:44px;border-radius:14px;background:var(--surface-2);display:grid;place-items:center;flex:none}
+.opt.on .ico{background:var(--primary);color:var(--on-primary)}
+.radio{width:22px;height:22px;border-radius:50%;border:2px solid var(--surface-3);flex:none}
+.opt.on .radio{border:7px solid var(--primary)}
+.seg{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;background:var(--surface-2);padding:4px;border-radius:16px}
+.seg button{height:58px;border-radius:12px;font-size:13px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;color:var(--muted)}
+.seg button b{color:var(--text);font-size:15px}
+.seg button.on{background:var(--surface);box-shadow:0 0 0 1.5px var(--primary)}
+.hint{margin-top:10px;padding:12px;border-radius:14px;background:var(--surface);border:1px solid var(--border);font-size:13px;color:var(--muted);display:flex;gap:10px}
+
+.week{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;text-align:center;margin-top:12px}
+.day{font-size:11px;color:var(--faint)}
+.day .dot{width:34px;height:34px;border-radius:50%;margin:5px auto 0;display:grid;place-items:center;background:var(--surface-2);color:var(--muted);font-size:11px;font-weight:600}
+.day.ok .dot{background:var(--ok);color:var(--on-ok)}
+.day.today .dot{box-shadow:0 0 0 2px var(--primary);background:var(--primary-soft);color:var(--primary-text)}
+.day.train .dot{border:1.5px dashed var(--faint)}
+
+.ex{background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:14px;margin-bottom:10px}
+.ex.active{border-color:var(--primary-line)}
+.ex.complete{opacity:.75}
+.ex-h{display:flex;align-items:center;gap:12px;width:100%;text-align:left}
+.thumb{width:50px;height:50px;border-radius:14px;background:var(--surface-2);display:grid;place-items:center;color:var(--faint);flex:none;border:1px solid var(--border)}
+.ex.complete .thumb{background:var(--ok);color:var(--on-ok);border-color:transparent}
+.tag-ss{font-size:11px;font-weight:700;padding:2px 6px;border-radius:6px;background:var(--primary-soft);color:var(--primary-text);margin-right:6px}
+.sug{margin-top:12px;padding:10px 12px;border-radius:14px;background:var(--primary-soft);color:var(--primary-text);font-size:13px;display:flex;gap:8px;align-items:flex-start}
+.sets{display:grid;gap:6px;margin-top:12px}
+.set{display:grid;grid-template-columns:38px 1fr 66px 52px 44px 50px;gap:6px;align-items:center}
+.set.head{font-size:10px;color:var(--faint);text-transform:uppercase;letter-spacing:.06em;font-weight:600}
+.set.head span{text-align:center}
+.set.head span:nth-child(2){text-align:left}
+.set .n{font-weight:700;text-align:center;color:var(--muted);font-size:14px}
+.set .n.w{color:var(--warn)}
+.set .prev{font-size:13px;color:var(--faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cell{height:46px;border-radius:12px;background:var(--surface-2);display:grid;place-items:center;font-family:"Barlow Condensed",Inter,sans-serif;font-size:21px;font-weight:600;width:100%}
+.cell.sm{font-size:18px;color:var(--muted)}
+.chk{width:50px;height:46px;border-radius:12px;background:var(--surface-3);display:grid;place-items:center;color:var(--muted)}
+.set.done .cell{background:var(--ok-soft)}
+.set.done .chk{background:var(--ok);color:var(--on-ok)}
+.set.fail .chk{background:var(--danger);color:#fff}
+.ex-tools{display:flex;gap:8px;margin-top:12px}
+
+.rest{position:absolute;left:10px;right:10px;bottom:14px;background:var(--surface-3);border-radius:24px;padding:14px 14px 12px;z-index:25;display:none;overflow:hidden;border:1px solid var(--border)}
+.rest.on{display:block}
+.rest .prog{position:absolute;left:0;top:0;height:4px;background:var(--primary);transition:width 1s linear}
+.rest .time{font-family:"Barlow Condensed",Inter,sans-serif;font-size:42px;font-weight:700;line-height:1}
+.rest.fin{background:var(--ok);color:var(--on-ok)}
+.rest.fin .prog{display:none}
+.rest .rb{height:48px;min-width:56px;border-radius:14px;background:var(--surface-2);font-weight:700;padding:0 12px}
+.rest.fin .rb{background:rgba(0,0,0,.12)}
+
+.scrim{position:absolute;inset:0;background:var(--scrim);z-index:40;opacity:0;pointer-events:none;transition:opacity .2s}
+.scrim.on{opacity:1;pointer-events:auto}
+.sheet{position:absolute;left:0;right:0;bottom:0;background:var(--surface);border-radius:26px 26px 0 0;padding:10px 16px 28px;z-index:41;transform:translateY(105%);transition:transform .25s ease;max-height:86%;overflow:auto}
+.sheet.on{transform:none}
+.grab{width:40px;height:5px;border-radius:9px;background:var(--surface-3);margin:0 auto 14px}
+.stepper{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:16px 0}
+.stepper .v{font-family:"Barlow Condensed",Inter,sans-serif;font-size:56px;font-weight:700;text-align:center;flex:1}
+.stepper button{width:64px;height:64px;border-radius:18px;background:var(--surface-2);font-size:18px;font-weight:700;display:grid;place-items:center;flex:none}
+.plates{display:flex;align-items:center;justify-content:center;height:130px;margin:10px 0 6px}
+.plates .barend{width:70px;height:12px;background:var(--faint);border-radius:3px}
+.plates .collar{width:10px;height:34px;background:var(--muted);border-radius:3px;margin-right:2px}
+.plate{border-radius:5px;margin-right:3px;display:grid;place-items:center;font-size:10px;font-weight:700}
+
+.toast{position:absolute;left:14px;right:14px;bottom:96px;background:var(--toast-bg);color:var(--toast-text);border-radius:16px;padding:13px 14px;display:flex;align-items:center;gap:10px;z-index:60;transform:translateY(16px);opacity:0;pointer-events:none;transition:.2s;font-size:14px}
+.no-tabs .toast{bottom:28px}
+.toast.on{opacity:1;transform:none;pointer-events:auto}
+.toast button{color:var(--toast-act);font-weight:700}
+.confetti{position:absolute;top:-16px;width:8px;height:14px;border-radius:2px;z-index:70;pointer-events:none;animation:fall 2.6s cubic-bezier(.2,.6,.4,1) forwards}
+@keyframes fall{to{transform:translateY(900px) rotate(760deg)}}
+@keyframes pop{0%{transform:scale(.6);opacity:0}60%{transform:scale(1.08);opacity:1}100%{transform:scale(1)}}
+.pop{animation:pop .5s ease both}
+
+.meal{margin-bottom:12px}
+.meal-h{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:6px}
+.fi{display:flex;align-items:center;gap:10px;padding:10px 0;border-top:1px solid var(--border)}
+.fi:first-child{border-top:0}
+.fi .k{font-family:"Barlow Condensed",Inter,sans-serif;font-size:19px;font-weight:600}
+.add-row{display:flex;align-items:center;gap:8px;color:var(--primary-text);font-weight:600;font-size:14px;padding:10px 0 2px}
+.empty{padding:12px;border-radius:14px;border:1.5px dashed var(--surface-3);color:var(--muted);font-size:13px}
+.search{display:flex;align-items:center;gap:10px;height:52px;border-radius:16px;background:var(--surface-2);padding:0 14px;border:1.5px solid var(--primary-line)}
+.search input{flex:1;outline:none;font-size:16px}
+.tabs{display:flex;gap:18px;border-bottom:1px solid var(--border);margin:14px 0 4px}
+.tabs button{padding:10px 0;font-size:14px;color:var(--faint);font-weight:600;border-bottom:2px solid transparent;margin-bottom:-1px}
+.tabs button.on{color:var(--text);border-color:var(--primary)}
+.res{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--border);width:100%;text-align:left}
+.res .plus{width:36px;height:36px;border-radius:12px;background:var(--primary-soft);color:var(--primary-text);display:grid;place-items:center;flex:none}
+.pchips{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px}
+.pchips button{padding:8px 12px;border-radius:12px;background:var(--surface-2);font-size:13px;font-weight:500}
+.pchips button.on{background:var(--primary);color:var(--on-primary);font-weight:700}
+.m4{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:14px;text-align:center}
+.m4 div{background:var(--surface-2);border-radius:12px;padding:8px 4px}
+
+.vol{display:grid;grid-template-columns:90px 1fr 26px;gap:10px;align-items:center;font-size:13px;margin:9px 0}
+.vtrack{position:relative;height:12px;background:var(--surface-2);border-radius:9px}
+.vband{position:absolute;top:-3px;bottom:-3px;background:var(--ok-soft);border-left:1.5px dashed var(--ok);border-right:1.5px dashed var(--ok)}
+.vfill{position:absolute;left:0;top:3px;bottom:3px;border-radius:9px;background:var(--primary)}
+.vfill.low{background:var(--warn)}
+.list{background:var(--surface);border:1px solid var(--border);border-radius:20px;overflow:hidden;margin-bottom:12px}
+.li{display:flex;align-items:center;gap:12px;padding:14px 16px;border-top:1px solid var(--border);width:100%;text-align:left}
+.li:first-child{border-top:0}
+.li .ico{width:36px;height:36px;border-radius:12px;background:var(--surface-2);display:grid;place-items:center;color:var(--muted);flex:none}
+.switch{width:46px;height:28px;border-radius:99px;background:var(--surface-3);position:relative;flex:none;transition:.2s}
+.switch::after{content:"";position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#fff;transition:.2s}
+.switch.on{background:var(--primary)}
+.switch.on::after{left:21px}
+.photo{aspect-ratio:3/4;border-radius:14px;background:var(--surface-2);display:grid;place-items:center;color:var(--faint);border:1px solid var(--border)}
+.stat{background:var(--surface-2);border-radius:14px;padding:10px}
+.stat .num{font-size:24px;line-height:1.1;white-space:nowrap}
+</style>
+</head>
+<body>
+<header class="proto">
+  <div class="row between wrap">
+    <div>
+      <h1>Forus · prototipo navegable</h1>
+      <p>Etapa 2 · datos de ejemplo con valores nutricionales aproximados. Casi todo responde al toque.</p>
+    </div>
+    <button class="btn btn-soft btn-sm" id="themeBtn" type="button">Ver modo claro</button>
+  </div>
+  <nav class="jump" id="jump" aria-label="Pantallas"></nav>
+</header>
+
+<div class="stage">
+<div class="phone" id="phone">
+  <div class="sbar"><span>18:32</span><span class="row" style="gap:6px"><i data-i="signal" data-s="16"></i><i data-i="battery" data-s="22"></i></span></div>
+
+  <!-- ONBOARDING -->
+  <section class="scr" id="s-onb">
+    <div class="row between" style="margin-bottom:14px">
+      <button class="icon-btn" data-toast="Vuelve al paso anterior (equipamiento y días)" aria-label="Atrás"><i data-i="chev-l"></i></button>
+      <span class="small muted">Paso 6 de 9</span>
+      <button class="small muted" data-go="plan">Saltar</button>
+    </div>
+    <div class="progress-steps"><i style="width:66%"></i></div>
+    <h1 class="h1" style="margin:22px 0 6px">¿Qué quieres lograr?</h1>
+    <p class="muted" style="margin-bottom:18px">Define tus calorías y cómo progresa tu rutina. Lo puedes cambiar cuando quieras.</p>
+    <div id="goalOpts">
+      <button class="opt on" data-goal="vol"><span class="ico"><i data-i="trend"></i></span><span class="grow"><b>Ganar músculo</b><br><span class="small muted">Volumen · superávit controlado</span></span><span class="radio"></span></button>
+      <button class="opt" data-goal="def"><span class="ico"><i data-i="flame"></i></span><span class="grow"><b>Perder grasa</b><br><span class="small muted">Definición · déficit cuidando la fuerza</span></span><span class="radio"></span></button>
+      <button class="opt" data-goal="rec"><span class="ico"><i data-i="repeat"></i></span><span class="grow"><b>Recomposición</b><br><span class="small muted">Mismo peso, más músculo y menos grasa</span></span><span class="radio"></span></button>
+      <button class="opt" data-goal="man"><span class="ico"><i data-i="target"></i></span><span class="grow"><b>Mantener</b><br><span class="small muted">Consolidar lo logrado entre fases</span></span><span class="radio"></span></button>
+    </div>
+    <div id="paceBox">
+      <div class="eyebrow" style="margin:18px 0 8px">Ritmo por semana</div>
+      <div class="seg" id="paceSeg"></div>
+    </div>
+    <div class="hint"><i data-i="info" data-s="18"></i><span id="paceHint"></span></div>
+    <button class="btn btn-primary" data-go="plan" style="margin-top:22px">Siguiente</button>
+  </section>
+
+  <!-- PLAN INICIAL -->
+  <section class="scr" id="s-plan">
+    <div class="eyebrow">Tu plan inicial</div>
+    <h1 class="h1" style="margin:6px 0 4px">Volumen · 16 semanas</h1>
+    <p class="muted">Desde el lunes 14 de septiembre · meta +0,25 kg por semana</p>
+    <div class="card" style="margin-top:16px">
+      <div class="row between"><span class="muted">Gasto estimado</span><span class="num" style="font-size:22px">2.660 kcal</span></div>
+      <p class="xs faint" style="margin-top:2px">TMB 1.718 kcal (Mifflin-St Jeor) × 1,55 por actividad moderada</p>
+      <div class="row between" style="margin-top:10px"><span class="muted">Superávit</span><span class="num accent" style="font-size:22px">+275 kcal</span></div>
+      <p class="xs faint" style="margin-top:2px">≈ 0,25 kg × 7.700 kcal ÷ 7 días. Se corrige cada semana con tu peso real.</p>
+      <div class="divider"></div>
+      <div class="row between"><b>Objetivo promedio</b><span class="num" style="font-size:36px;line-height:1">2.940 <span class="small muted">kcal/día</span></span></div>
+    </div>
+    <div class="grid3">
+      <div class="card" style="margin:0;padding:12px"><div class="xs muted">Proteína</div><div class="num" style="font-size:26px;color:var(--prot)">135 g</div><div class="xs faint">1,8 g/kg</div></div>
+      <div class="card" style="margin:0;padding:12px"><div class="xs muted">Carbohidratos</div><div class="num" style="font-size:26px;color:var(--carb)">416 g</div><div class="xs faint">el resto</div></div>
+      <div class="card" style="margin:0;padding:12px"><div class="xs muted">Grasa</div><div class="num" style="font-size:26px;color:var(--fat)">82 g</div><div class="xs faint">25 % kcal</div></div>
+    </div>
+    <div class="card">
+      <div class="row between"><b>Según el día</b><span class="badge">Etapa 4</span></div>
+      <p class="small muted" style="margin:4px 0 10px">Misma proteína y grasa; los carbohidratos siguen al entrenamiento.</p>
+      <div class="grid3" style="margin:0">
+        <div class="stat"><div class="xs muted">Pierna</div><div class="num">3.240</div></div>
+        <div class="stat"><div class="xs muted">Torso</div><div class="num">3.040</div></div>
+        <div class="stat"><div class="xs muted">Descanso</div><div class="num">2.670</div></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="row between"><b>Rutina sugerida</b><button class="link" data-toast="Podrás elegir otra plantilla o armar la tuya">Cambiar</button></div>
+      <div class="h2" style="margin-top:6px">Torso-Pierna · 4 días · 60 min</div>
+      <p class="small muted" style="margin-top:4px">Por tus 4 días disponibles, nivel intermedio y gimnasio completo.</p>
+      <div class="row wrap" style="gap:6px;margin-top:10px"><span class="chip">Lun · Torso A</span><span class="chip">Mié · Pierna A</span><span class="chip">Vie · Torso B</span><span class="chip">Sáb · Pierna B</span></div>
+    </div>
+    <div class="card">
+      <b>Un día de ejemplo</b>
+      <div class="stack small" style="margin-top:10px">
+        <div class="row between"><span class="muted">Desayuno</span><span>Avena con leche, plátano y huevos</span></div>
+        <div class="row between"><span class="muted">Almuerzo</span><span>Arroz, pollo, ensalada chilena</span></div>
+        <div class="row between"><span class="muted">Once</span><span>Marraqueta con quesillo y pavo</span></div>
+        <div class="row between"><span class="muted">Cena</span><span>Porotos con riendas</span></div>
+      </div>
+    </div>
+    <button class="btn btn-primary" data-go="home">Empezar</button>
+  </section>
+
+  <!-- INICIO -->
+  <section class="scr" id="s-home">
+    <div class="row between" style="margin-bottom:16px">
+      <div><div class="small muted">Miércoles 30 de septiembre</div><div class="h1">Hola, Edo</div></div>
+      <span class="chip hot"><i data-i="flame" data-s="16"></i><b>12 días</b></span>
+    </div>
+    <div class="card hero">
+      <div class="row between"><span class="eyebrow" style="color:var(--primary-text)">Hoy toca</span><span class="chip hot" style="background:var(--surface)"><i data-i="zap" data-s="14"></i>Día alto en carbos</span></div>
+      <div class="h1" style="margin:6px 0 2px">Pierna A</div>
+      <p class="small muted">5 ejercicios · ~60 min · semana 3 de 6</p>
+      <button class="btn btn-primary" data-go="session" style="margin-top:14px"><i data-i="play" data-s="18"></i>Empezar entrenamiento</button>
+    </div>
+    <div class="card">
+      <div class="row" style="gap:16px">
+        <div class="ring-wrap">
+          <svg width="136" height="136" viewBox="0 0 120 120" aria-hidden="true"><circle cx="60" cy="60" r="52" stroke="var(--surface-3)" stroke-width="11" fill="none"/><circle id="ring" cx="60" cy="60" r="52" stroke="var(--primary)" stroke-width="11" fill="none" stroke-linecap="round" stroke-dasharray="326.73" stroke-dashoffset="326.73" transform="rotate(-90 60 60)" style="transition:stroke-dashoffset .6s ease"/></svg>
+          <div class="c"><div class="num" id="homeLeft" style="font-size:34px;line-height:1">0</div><div class="xs muted">kcal restantes</div></div>
+        </div>
+        <div class="grow">
+          <div class="small muted">Consumidas</div>
+          <div class="num" style="font-size:24px"><span id="homeEaten">0</span> <span class="small muted">/ <span id="homeTarget">0</span></span></div>
+          <button class="link" id="whyBtn" style="margin-top:6px;text-align:left">¿Por qué 3.240 hoy?</button>
+        </div>
+      </div>
+      <div id="homeMacros"></div>
+    </div>
+    <div class="grid2">
+      <div class="card">
+        <div class="row between"><span class="small muted">Agua</span><i data-i="drop" data-s="18" class="accent"></i></div>
+        <div class="num" style="font-size:24px;margin:4px 0 8px"><span id="waterVal">1.750</span> <span class="small muted">/ 3.000 ml</span></div>
+        <div class="bar"><i id="waterBar" style="background:var(--prot);width:58%"></i></div>
+        <button class="btn btn-soft btn-sm" id="waterBtn" style="width:100%;margin-top:10px">+ 250 ml</button>
+      </div>
+      <div class="card">
+        <div class="row between"><span class="small muted">Peso de hoy</span><i data-i="weight" data-s="18" class="accent"></i></div>
+        <div class="num" style="font-size:24px;margin:4px 0 2px"><span id="homeW">0</span> <span class="small muted">kg</span></div>
+        <div class="xs faint">Promedio 7 días <span id="homeAvg"></span> kg</div>
+        <button class="btn btn-soft btn-sm" id="weightBtn" style="width:100%;margin-top:10px">Registrar</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="row between"><b>Volumen · semana 3 de 16</b><span class="chip ok" id="rateChip"></span></div>
+      <div class="bar" style="margin:12px 0 8px"><i style="width:15%;background:var(--primary)"></i></div>
+      <div class="xs faint" id="rateTxt"></div>
+    </div>
+    <div class="card">
+      <div class="row between"><b>Esta semana</b><span class="small muted">1 de 2 días cumplidos</span></div>
+      <div class="week" id="homeWeek"></div>
+    </div>
+  </section>
+
+  <!-- ENTRENAR -->
+  <section class="scr" id="s-train">
+    <div class="h1" style="margin-bottom:14px">Entrenar</div>
+    <div class="card">
+      <div class="row between"><b>Torso-Pierna · 4 días</b><span class="badge" style="white-space:nowrap">Semana 3 de 6</span></div>
+      <div class="small muted" style="margin-top:2px">RIR objetivo 2 · la semana 6 es de descarga</div>
+      <div class="row" style="gap:4px;margin-top:12px">
+        <div class="bar grow"><i style="width:100%;background:var(--ok)"></i></div><div class="bar grow"><i style="width:100%;background:var(--ok)"></i></div><div class="bar grow"><i style="width:40%;background:var(--primary)"></i></div><div class="bar grow"></div><div class="bar grow"></div><div class="bar grow" style="opacity:.5"></div>
+      </div>
+    </div>
+    <div class="card hero">
+      <div class="eyebrow" style="color:var(--primary-text)">Hoy · miércoles</div>
+      <div class="h1" style="margin:6px 0 10px">Pierna A</div>
+      <div class="stack small">
+        <div class="row between"><span>Sentadilla con barra</span><span class="muted">3 × 6–8 + calent.</span></div>
+        <div class="row between"><span>Peso muerto rumano</span><span class="muted">3 × 8–10</span></div>
+        <div class="row between"><span>Prensa de piernas</span><span class="muted">3 × 10–12</span></div>
+        <div class="row between"><span><span class="tag-ss">A1·A2</span>Curl femoral + extensión</span><span class="muted">3 × 12–15</span></div>
+        <div class="row between"><span>Elevación de talones</span><span class="muted">4 × 10–15</span></div>
+      </div>
+      <button class="btn btn-primary" data-go="session" style="margin-top:14px"><i data-i="play" data-s="18"></i>Empezar</button>
+    </div>
+    <div class="card">
+      <b>Esta semana</b>
+      <div class="stack small" style="margin-top:10px">
+        <div class="row between"><span class="row" style="gap:8px"><span class="chip ok" style="padding:3px 7px"><i data-i="check" data-s="14"></i></span>Lun · Torso A</span><span class="muted">52 min · 7.420 kg</span></div>
+        <div class="row between"><span class="row" style="gap:8px"><span class="chip hot" style="padding:3px 7px"><i data-i="play" data-s="14"></i></span>Mié · Pierna A</span><span class="accent">Hoy</span></div>
+        <div class="row between"><span class="row" style="gap:8px"><span class="chip" style="padding:3px 7px"><i data-i="cal" data-s="14"></i></span>Vie · Torso B</span><span class="muted">Pendiente</span></div>
+        <div class="row between"><span class="row" style="gap:8px"><span class="chip" style="padding:3px 7px"><i data-i="cal" data-s="14"></i></span>Sáb · Pierna B</span><span class="muted">Pendiente</span></div>
+      </div>
+    </div>
+    <div class="grid3">
+      <button class="card" style="margin:0;text-align:center" data-toast="Mis rutinas: editor con arrastrar y soltar"><i data-i="layers" data-s="22" class="accent" style="margin:0 auto 6px"></i><span class="small"><b>Rutinas</b></span></button>
+      <button class="card" style="margin:0;text-align:center" data-toast="Biblioteca: ~300 ejercicios con filtros"><i data-i="list" data-s="22" class="accent" style="margin:0 auto 6px"></i><span class="small"><b>Ejercicios</b></span></button>
+      <button class="card" style="margin:0;text-align:center" data-toast="Historial de sesiones y récords"><i data-i="history" data-s="22" class="accent" style="margin:0 auto 6px"></i><span class="small"><b>Historial</b></span></button>
+    </div>
+  </section>
+
+  <!-- SESIÓN -->
+  <section class="scr" id="s-session">
+    <div class="row between" style="margin-bottom:6px">
+      <button class="icon-btn" data-go="train" aria-label="Minimizar"><i data-i="chev-d"></i></button>
+      <div style="text-align:center"><b>Pierna A</b><div class="num muted" id="elapsed" style="font-size:18px">12:34</div></div>
+      <button class="btn btn-primary btn-sm" data-go="summary">Terminar</button>
+    </div>
+    <div class="row" style="justify-content:center;margin-bottom:12px"><span class="chip" id="offlineChip"><i data-i="wifi-off" data-s="14"></i>Sin señal · se guarda en tu teléfono</span></div>
+    <div id="sesList"></div>
+  </section>
+
+  <!-- RESUMEN -->
+  <section class="scr" id="s-summary">
+    <div style="text-align:center;margin-top:10px">
+      <div class="pop" style="width:84px;height:84px;border-radius:26px;background:var(--primary);color:var(--on-primary);display:grid;place-items:center;margin:0 auto"><i data-i="trophy" data-s="40"></i></div>
+      <div class="h1" style="margin-top:16px">¡Sesión completa!</div>
+      <p class="muted">Pierna A · semana 3 · 1 récord personal</p>
+    </div>
+    <div class="grid3" style="margin-top:18px">
+      <div class="stat"><div class="xs muted">Duración</div><div class="num">58 min</div></div>
+      <div class="stat"><div class="xs muted">Volumen</div><div class="num">9.840 kg</div></div>
+      <div class="stat"><div class="xs muted">Series</div><div class="num">16</div></div>
+    </div>
+    <div class="card hero pop" style="animation-delay:.15s">
+      <div class="row" style="gap:12px"><span class="icon-btn" style="background:var(--primary);color:var(--on-primary)"><i data-i="trophy"></i></span>
+        <div class="grow"><div class="eyebrow" style="color:var(--primary-text)">Nuevo récord</div><b>Sentadilla con barra</b><div class="small muted">1RM estimado 104,5 kg (+3,2 kg)</div><div class="xs faint">con 82,5 kg × 8 repeticiones</div></div></div>
+    </div>
+    <div class="card">
+      <b>Comparado con la última Pierna A</b>
+      <div class="stack small" style="margin-top:10px">
+        <div class="row between"><span class="muted">Volumen total</span><span class="accent">+4 %</span></div>
+        <div class="row between"><span class="muted">Series con RIR ≤ 2</span><span>12 de 15</span></div>
+        <div class="row between"><span class="muted">Próxima vez sube</span><span>Sentadilla, prensa</span></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="row between"><b>Tu post-entreno</b><span class="badge">Etapa 4</span></div>
+      <p class="small muted" style="margin:4px 0 10px">Te quedan <span id="postLeft"></span> kcal. Idea que calza con tus macros:</p>
+      <div class="row between small"><span id="postName">Arroz con atún + plátano</span><span class="num" style="font-size:18px" id="postKcal"></span></div>
+      <div class="xs faint" id="postMacros"></div>
+      <button class="btn btn-primary" id="postBtn" style="margin-top:12px">Registrar en Cena</button>
+    </div>
+    <button class="btn btn-soft" data-go="home">Volver al inicio</button>
+  </section>
+
+  <!-- COMER -->
+  <section class="scr" id="s-eat">
+    <div class="row between" style="margin-bottom:12px">
+      <button class="icon-btn" data-toast="Día anterior" aria-label="Día anterior"><i data-i="chev-l"></i></button>
+      <div style="text-align:center"><b>Hoy</b><div class="xs muted">mié 30 sept</div></div>
+      <button class="icon-btn" data-toast="Día siguiente" aria-label="Día siguiente"><i data-i="chev-r"></i></button>
+    </div>
+    <div class="card">
+      <div class="row between"><div><div class="small muted">Te quedan</div><div class="num" style="font-size:34px;line-height:1"><span id="eatLeft">0</span> <span class="small muted">kcal</span></div></div>
+        <div style="text-align:right"><div class="xs muted">Objetivo de hoy</div><div class="num" style="font-size:20px">3.240</div><span class="chip hot" style="margin-top:4px"><i data-i="zap" data-s="12"></i>Pierna: +75 g carbos</span></div></div>
+      <div id="eatMacros"></div>
+    </div>
+    <div id="meals"></div>
+    <div class="grid3">
+      <button class="card" style="margin:0;text-align:center" data-toast="Copia desayuno, almuerzo u once de otro día"><i data-i="copy" data-s="20" class="accent" style="margin:0 auto 6px"></i><span class="xs"><b>Copiar de ayer</b></span></button>
+      <button class="card" style="margin:0;text-align:center" data-toast="Plan semanal y lista de compras (Etapa 4)"><i data-i="cal" data-s="20" class="accent" style="margin:0 auto 6px"></i><span class="xs"><b>Plan semanal</b></span></button>
+      <button class="card" style="margin:0;text-align:center" data-toast="Vitaminas y minerales del día (Etapa 5)"><i data-i="chart" data-s="20" class="accent" style="margin:0 auto 6px"></i><span class="xs"><b>Micronutrientes</b></span></button>
+    </div>
+  </section>
+
+  <!-- AGREGAR ALIMENTO -->
+  <section class="scr" id="s-add">
+    <div class="row between" style="margin-bottom:14px">
+      <button class="icon-btn" data-go="eat" aria-label="Cerrar"><i data-i="x"></i></button>
+      <b id="addTitle">Agregar a Cena</b>
+      <span style="width:42px"></span>
+    </div>
+    <label class="search"><i data-i="search" data-s="20" class="faint"></i><input id="q" placeholder="Busca: porotos, marraqueta, palta…" autocomplete="off"></label>
+    <div class="grid3" style="margin-top:12px;margin-bottom:0">
+      <button class="btn btn-soft btn-sm" style="width:100%" data-toast="Abre la cámara y lee el código (Open Food Facts)"><i data-i="barcode" data-s="18"></i>Escanear</button>
+      <button class="btn btn-soft btn-sm" style="width:100%" data-toast="Foto del plato con IA (Etapa 5)"><i data-i="camera" data-s="18"></i>Foto</button>
+      <button class="btn btn-soft btn-sm" style="width:100%" data-toast="Registro rápido: solo kcal y macros, para cuando comes fuera"><i data-i="zap" data-s="18"></i>Rápido</button>
+    </div>
+    <div class="tabs" id="addTabs"><button class="on" data-tab="rec">Recientes</button><button data-tab="fav">Favoritos</button><button data-tab="mis">Mis comidas</button></div>
+    <div id="results"></div>
+  </section>
+
+  <!-- PROGRESO -->
+  <section class="scr" id="s-progress">
+    <div class="h1" style="margin-bottom:14px">Progreso</div>
+    <div class="card">
+      <div class="row between"><b>Peso</b><span class="small muted">6 semanas</span></div>
+      <div class="grid3" style="margin:12px 0 4px">
+        <div class="stat"><div class="xs muted">Prom. 7 días</div><div class="num" id="pAvg"></div></div>
+        <div class="stat"><div class="xs muted">Ritmo</div><div class="num" id="pRate"></div></div>
+        <div class="stat"><div class="xs muted">Objetivo</div><div class="num">+0,25</div></div>
+      </div>
+      <div id="wChart"></div>
+      <div class="row small" style="gap:14px;margin-top:6px"><span class="row" style="gap:6px"><span style="width:8px;height:8px;border-radius:50%;background:var(--faint)"></span><span class="muted">Pesaje diario</span></span><span class="row" style="gap:6px"><span style="width:16px;height:3px;border-radius:2px;background:var(--primary)"></span><span class="muted">Promedio 7 días</span></span></div>
+    </div>
+    <div class="card">
+      <div class="row between"><b>Fuerza · 1RM estimado</b><span class="small muted">Epley</span></div>
+      <div class="stack small" style="margin-top:12px">
+        <div class="row between"><span>Sentadilla con barra</span><span><span class="num" style="font-size:18px">104,5 kg</span> <span class="chip hot" style="padding:2px 7px">PR hoy</span></span></div>
+        <div class="row between"><span>Press banca</span><span class="num" style="font-size:18px">86,7 kg</span></div>
+        <div class="row between"><span>Peso muerto rumano</span><span class="num" style="font-size:18px">93,3 kg</span></div>
+        <div class="row between"><span>Dominadas lastradas</span><span class="num" style="font-size:18px">+15 kg × 6</span></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="row between"><b>Series por músculo</b><span class="badge gray">meta 10–20</span></div>
+      <div id="volList" style="margin-top:6px"></div>
+      <div class="hint" style="margin-top:12px;background:var(--warn-soft);border-color:transparent;color:var(--text)"><i data-i="info" data-s="18" style="color:var(--warn)"></i><span>Isquiotibiales bajo el rango: agrega 2 series de curl femoral en Pierna B.</span></div>
+    </div>
+    <div class="card">
+      <div class="row between"><b>Medidas y fotos</b><span class="badge">Etapa 4</span></div>
+      <div class="grid2" style="margin:12px 0 0">
+        <div class="stat"><div class="xs muted">Cintura</div><div class="num">81,0 <span class="small muted">cm</span></div><div class="xs faint">−0,5 en 4 sem</div></div>
+        <div class="stat"><div class="xs muted">Brazo</div><div class="num">36,5 <span class="small muted">cm</span></div><div class="xs accent">+0,5 en 4 sem</div></div>
+      </div>
+      <div class="grid2" style="margin:12px 0 0">
+        <div><div class="photo"><i data-i="user" data-s="36"></i></div><div class="xs faint" style="margin-top:4px;text-align:center">14 sept</div></div>
+        <div><div class="photo"><i data-i="user" data-s="36"></i></div><div class="xs faint" style="margin-top:4px;text-align:center">Hoy</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- PERFIL -->
+  <section class="scr" id="s-profile">
+    <div class="row" style="gap:14px;margin-bottom:16px">
+      <div style="width:60px;height:60px;border-radius:20px;background:var(--primary);color:var(--on-primary);display:grid;place-items:center;font-size:26px;font-weight:700">E</div>
+      <div><div class="h2">Edo</div><div class="small muted">30 años · 178 cm · intermedio</div></div>
+    </div>
+    <div class="card hero">
+      <div class="row between"><span class="eyebrow" style="color:var(--primary-text)">Fase actual</span><button class="link" data-toast="Nueva fase: tipo, duración y ritmo, con vista previa del calendario">Cambiar</button></div>
+      <div class="h2" style="margin-top:4px">Volumen · semana 3 de 16</div>
+      <p class="small muted">2.940 kcal promedio · P 135 · C 416 · G 82 g</p>
+    </div>
+    <div class="list">
+      <button class="li" data-toast="Sexo, edad, estatura y nivel de actividad"><span class="ico"><i data-i="user" data-s="18"></i></span><span class="grow">Datos personales</span><i data-i="chev-r" data-s="18" class="faint"></i></button>
+      <button class="li" data-toast="Días, duración, hora habitual y equipamiento"><span class="ico"><i data-i="dumbbell" data-s="18"></i></span><span class="grow">Entrenamiento</span><i data-i="chev-r" data-s="18" class="faint"></i></button>
+      <button class="li" data-toast="Tipo de dieta, lo que no te gusta, alergias y presupuesto"><span class="ico"><i data-i="food" data-s="18"></i></span><span class="grow">Alimentación</span><i data-i="chev-r" data-s="18" class="faint"></i></button>
+      <button class="li" data-toast="Desayuno, almuerzo, once, cena y colación (editables)"><span class="ico"><i data-i="clock" data-s="18"></i></span><span class="grow">Comidas del día</span><i data-i="chev-r" data-s="18" class="faint"></i></button>
+      <button class="li" data-toast="Discos disponibles y barra, para la calculadora"><span class="ico"><i data-i="calc" data-s="18"></i></span><span class="grow">Discos y barra</span><span class="small muted">kg · barra 20</span></button>
+    </div>
+    <div class="list">
+      <button class="li" data-toast="Por definir contigo: qué comparten entre ustedes dos"><span class="ico"><i data-i="heart" data-s="18"></i></span><span class="grow">Compartir con tu pareja</span><span class="badge gray">Por definir</span></button>
+      <button class="li" id="themeRow"><span class="ico"><i data-i="moon" data-s="18"></i></span><span class="grow">Modo oscuro</span><span class="switch on" id="themeSwitch"></span></button>
+      <button class="li" data-toast="Descarga todos tus datos (JSON/CSV) o borra tu cuenta"><span class="ico"><i data-i="download" data-s="18"></i></span><span class="grow">Exportar mis datos</span><i data-i="chev-r" data-s="18" class="faint"></i></button>
+    </div>
+  </section>
+
+  <nav class="tabbar" id="tabbar">
+    <button data-go="home" data-tab="home"><i data-i="home" data-s="24"></i>Inicio</button>
+    <button data-go="train" data-tab="train"><i data-i="dumbbell" data-s="24"></i>Entrenar</button>
+    <button data-go="eat" data-tab="eat"><i data-i="food" data-s="24"></i>Comer</button>
+    <button data-go="progress" data-tab="progress"><i data-i="trend" data-s="24"></i>Progreso</button>
+    <button data-go="profile" data-tab="profile"><i data-i="user" data-s="24"></i>Perfil</button>
+  </nav>
+
+  <div class="rest" id="rest">
+    <div class="prog" id="restProg"></div>
+    <div class="row between">
+      <div><div class="xs" id="restLbl" style="opacity:.8">Descanso</div><div class="time" id="restTime">2:30</div></div>
+      <div class="row" style="gap:6px">
+        <button class="rb" id="restMinus">−15</button>
+        <button class="rb" id="restPlus">+15</button>
+        <button class="rb" id="restSkip">Saltar</button>
+      </div>
+    </div>
+  </div>
+  <div class="scrim" id="scrim"></div>
+  <div class="sheet" id="sheet" role="dialog" aria-modal="true"><div class="grab"></div><div id="sheetBody"></div></div>
+  <div class="toast" id="toast" role="status"><span id="toastMsg" class="grow"></span><button id="toastAct" type="button"></button></div>
+</div>
+<aside class="notes" id="notes"></aside>
+</div>
+
+<script>
+const ICONS={
+  home:'<path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>',
+  dumbbell:'<path d="M6.5 6.5v11M3.5 9v6M17.5 6.5v11M20.5 9v6M6.5 12h11"/>',
+  food:'<path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3zm0 0v7"/>',
+  trend:'<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>',
+  user:'<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
+  check:'<polyline points="20 6 9 17 4 12"/>',
+  x:'<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>',
+  clock:'<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
+  flame:'<path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.07-2.14-.22-4.05 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.15.43-2.29 1-3a2.5 2.5 0 0 0 2.5 2.5z"/>',
+  drop:'<path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/>',
+  weight:'<circle cx="12" cy="5" r="3"/><path d="M6.5 8a2 2 0 0 0-1.9 1.46L2.1 18.5A2 2 0 0 0 4 21h16a2 2 0 0 0 1.93-2.54L19.4 9.5A2 2 0 0 0 17.48 8z"/>',
+  camera:'<path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/>',
+  barcode:'<path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2M8 7v10M12 7v10M16 7v10"/>',
+  search:'<circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>',
+  'chev-r':'<polyline points="9 18 15 12 9 6"/>','chev-l':'<polyline points="15 18 9 12 15 6"/>','chev-d':'<polyline points="6 9 12 15 18 9"/>',
+  trophy:'<path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2z"/>',
+  calc:'<rect x="4" y="2" width="16" height="20" rx="2"/><line x1="8" y1="6" x2="16" y2="6"/><path d="M16 14v4M8 10h.01M12 10h.01M16 10h.01M8 14h.01M12 14h.01M8 18h.01M12 18h.01"/>',
+  repeat:'<polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/>',
+  more:'<circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/>',
+  moon:'<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>',
+  cal:'<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>',
+  'wifi-off':'<line x1="1" y1="1" x2="23" y2="23"/><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55M5 12.55a10.94 10.94 0 0 1 5.17-2.39M10.71 5.05A16 16 0 0 1 22.58 9M1.42 9a15.91 15.91 0 0 1 4.7-2.88M8.53 16.11a6 6 0 0 1 6.95 0M12 20h.01"/>',
+  info:'<circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>',
+  zap:'<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>',
+  heart:'<path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>',
+  download:'<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>',
+  copy:'<rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>',
+  star:'<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>',
+  play:'<polygon points="6 3 20 12 6 21 6 3"/>',
+  book:'<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>',
+  history:'<polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/>',
+  list:'<line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>',
+  layers:'<polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/>',
+  target:'<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>',
+  chart:'<line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>',
+  plus:'<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>',
+  note:'<path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>',
+  signal:'<path d="M2 20h.01M7 20v-4M12 20v-8M17 20V8M22 4v16"/>',
+  battery:'<rect x="1" y="6" width="18" height="12" rx="2"/><line x1="23" y1="13" x2="23" y2="11"/><rect x="3" y="8" width="11" height="8" rx="1" fill="currentColor" stroke="none"/>'
+};
+const ic=(n,s=20)=>`<svg class="ic" viewBox="0 0 24 24" width="${s}" height="${s}" aria-hidden="true">${ICONS[n]||''}</svg>`;
+function hydrate(root=document){root.querySelectorAll('i[data-i]').forEach(el=>{const t=document.createElement('template');t.innerHTML=ic(el.dataset.i,+el.dataset.s||20);const svg=t.content.firstChild;if(el.getAttribute('class'))svg.classList.add(...el.getAttribute('class').split(' '));if(el.getAttribute('style'))svg.setAttribute('style',el.getAttribute('style'));el.replaceWith(svg);});}
+const $=(s,r=document)=>r.querySelector(s);
+const fmt=(n,d=0)=>Number(n).toLocaleString('es-CL',{minimumFractionDigits:d,maximumFractionDigits:d});
+
+/* ---------- datos de ejemplo (por 100 g; valores aproximados) ---------- */
+const FOODS={
+  avena:{n:'Avena',k:379,p:13.2,c:67.7,g:6.5,por:[['Taza',80],['Cucharada',10]]},
+  leche:{n:'Leche descremada',k:34,p:3.4,c:4.9,g:.1,u:'ml',por:[['Taza',250]]},
+  platano:{n:'Plátano',k:89,p:1.1,c:22.8,g:.3,por:[['Unidad mediana',120]]},
+  huevo:{n:'Huevo entero',k:143,p:12.6,c:.7,g:9.5,por:[['Unidad',50]]},
+  arroz:{n:'Arroz blanco cocido',k:130,p:2.7,c:28.2,g:.3,por:[['Taza',160]]},
+  pollo:{n:'Pechuga de pollo a la plancha',k:165,p:31,c:0,g:3.6,por:[['Filete',150]]},
+  ensalada:{n:'Ensalada chilena',k:53,p:.9,c:4.3,g:3.7,tag:'Preparación chilena',por:[['Plato',150]]},
+  palta:{n:'Palta',k:160,p:2,c:8.5,g:14.7,por:[['Cucharada',15],['Media unidad',80]]},
+  marraqueta:{n:'Marraqueta',k:270,p:8.5,c:56,g:1,por:[['Unidad',100],['Media',50]]},
+  quesillo:{n:'Quesillo',k:150,p:13,c:3,g:9,por:[['Lámina',30]]},
+  pavo:{n:'Jamón de pavo',k:110,p:17.5,c:2.5,g:3.8,por:[['Lámina',20]]},
+  atun:{n:'Atún en agua',k:116,p:25.5,c:0,g:.8,por:[['Lata drenada',120]]},
+  porotos:{n:'Porotos cocidos',k:127,p:8.7,c:22.8,g:.5,por:[['Taza',180]]},
+  riendas:{n:'Porotos con riendas',k:118,p:5.6,c:18.5,g:2.4,tag:'Preparación chilena',por:[['Plato',350]]},
+  cazuela:{n:'Cazuela de vacuno',k:68,p:5.2,c:6.8,g:2.2,tag:'Preparación chilena',por:[['Plato',450]]},
+  empanada:{n:'Empanada de pino al horno',k:262,p:9,c:30,g:11.5,tag:'Preparación chilena',por:[['Unidad',250]]},
+  pastel:{n:'Pastel de choclo',k:150,p:7,c:15,g:7,tag:'Preparación chilena',por:[['Porción',350]]},
+  sopaipilla:{n:'Sopaipilla',k:330,p:5,c:38,g:17.5,tag:'Preparación chilena',por:[['Unidad',45]]},
+  lentejas:{n:'Lentejas cocidas',k:116,p:9,c:20,g:.4,por:[['Taza',200]]},
+  papa:{n:'Papa cocida',k:87,p:1.9,c:20,g:.1,por:[['Unidad mediana',150]]},
+  manzana:{n:'Manzana',k:52,p:.3,c:13.8,g:.2,por:[['Unidad',150]]},
+  whey:{n:'Proteína whey',k:390,p:78,c:8,g:6,tag:'Producto de marca',por:[['Scoop',30]]},
+  yogur:{n:'Yogur proteico natural',k:62,p:10,c:4.5,g:.2,tag:'Producto de marca',por:[['Pote',155]]}
+};
+const MEALS=[
+  {id:'des',n:'Desayuno',t:'07:40',items:[['avena',80],['leche',250],['platano',120],['huevo',100]]},
+  {id:'alm',n:'Almuerzo',t:'13:30',items:[['arroz',250],['pollo',180],['ensalada',150],['palta',50]]},
+  {id:'once',n:'Once',t:'17:45',items:[['marraqueta',100],['quesillo',60],['pavo',40]]},
+  {id:'cena',n:'Cena',t:'21:30',items:[]},
+  {id:'col',n:'Colación',t:'',items:[]}
+];
+const TARGET={k:3240,p:135,c:491,g:82};
+const POST=[['arroz',250],['atun',120],['platano',120]];
+let water=1750;
+const nut=(key,g)=>{const f=FOODS[key],r=g/100;return{k:f.k*r,p:f.p*r,c:f.c*r,g:f.g*r};};
+const sum=list=>list.reduce((a,[key,g])=>{const n=nut(key,g);a.k+=n.k;a.p+=n.p;a.c+=n.c;a.g+=n.g;return a;},{k:0,p:0,c:0,g:0});
+const dayTotals=()=>sum(MEALS.flatMap(m=>m.items));
+const plural=s=>s.split(' ').map(w=>/[aeiouáéó]$/.test(w)?w+'s':w+'es').join(' ');
+const qty=(key,g)=>{const f=FOODS[key],u=f.u||'g',p=f.por.find(([,pg])=>g%pg===0&&g/pg<=4);if(!p)return`${fmt(g)} ${u}`;const n=g/p[1],name=p[0].toLowerCase();return`${fmt(n)} ${n>1?plural(name):name} · ${fmt(g)} ${u}`;};
+
+/* ---------- peso (serie sintética con semilla fija) ---------- */
+function rng(a){return()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+const R=rng(11);
+const W=Array.from({length:42},(_,i)=>Math.round((74.6+i*0.25/7+(R()-.5)*.9)*10)/10);
+const MA=W.map((_,i)=>{const s=W.slice(Math.max(0,i-6),i+1);return s.reduce((a,b)=>a+b,0)/s.length;});
+const TODAY=new Date(2026,8,30);
+const dayLbl=i=>{const d=new Date(TODAY);d.setDate(d.getDate()-(41-i));return d.toLocaleDateString('es-CL',{day:'numeric',month:'short'}).replace('.','');};
+const RATE=(MA[41]-MA[13])/4;
+const sign=v=>(v>=0?'+':'−')+fmt(Math.abs(v),2);
+
+/* ---------- sesión ---------- */
+const SES=[
+  {n:'Sentadilla con barra',m:'Cuádriceps · glúteos',last:'80 × 8 · 8 · 8 (RIR 2)',sug:'Hoy 82,5 kg: la última vez completaste 3 × 8 con RIR 2.',rest:150,
+   sets:[{t:'C',kg:60,r:5,rir:null,prev:'60 × 5'},{t:1,kg:82.5,r:8,rir:2,prev:'80 × 8'},{t:2,kg:82.5,r:8,rir:2,prev:'80 × 8'},{t:3,kg:82.5,r:8,rir:2,prev:'80 × 8'}]},
+  {n:'Peso muerto rumano',m:'Isquiotibiales · glúteos',last:'70 × 10 · 9 · 9',sug:'Mantén 70 kg y busca 10 repeticiones en todas las series.',rest:120,
+   sets:[{t:1,kg:70,r:10,rir:2,prev:'70 × 10'},{t:2,kg:70,r:10,rir:2,prev:'70 × 9'},{t:3,kg:70,r:10,rir:2,prev:'70 × 9'}]},
+  {n:'Prensa de piernas',m:'Cuádriceps',last:'160 × 12 · 12 · 12',sug:'Hoy 170 kg: llegaste a 12 en todas las series.',rest:120,
+   sets:[{t:1,kg:170,r:10,rir:2,prev:'160 × 12'},{t:2,kg:170,r:10,rir:2,prev:'160 × 12'},{t:3,kg:170,r:10,rir:2,prev:'160 × 12'}]},
+  {n:'Curl femoral sentado',m:'Isquiotibiales',g:'A1',last:'45 × 13 · 12 · 12',sug:'Superserie: sigue con A2 sin descansar.',rest:0,
+   sets:[{t:1,kg:45,r:13,rir:1,prev:'45 × 13'},{t:2,kg:45,r:13,rir:1,prev:'45 × 12'},{t:3,kg:45,r:13,rir:1,prev:'45 × 12'}]},
+  {n:'Extensión de cuádriceps',m:'Cuádriceps',g:'A2',last:'50 × 15 · 14 · 13',sug:'Descansa 90 s después de A2.',rest:90,
+   sets:[{t:1,kg:50,r:15,rir:1,prev:'50 × 15'},{t:2,kg:50,r:15,rir:1,prev:'50 × 14'},{t:3,kg:50,r:15,rir:1,prev:'50 × 13'}]},
+  {n:'Elevación de talones de pie',m:'Pantorrillas',last:'90 × 12 · 12 · 11 · 10',sug:'Mantén 90 kg: pausa de 1 s abajo.',rest:60,
+   sets:[{t:1,kg:90,r:12,rir:2,prev:'90 × 12'},{t:2,kg:90,r:12,rir:2,prev:'90 × 12'},{t:3,kg:90,r:12,rir:2,prev:'90 × 11'},{t:4,kg:90,r:12,rir:2,prev:'90 × 10'}]}
+];
+let openEx=0;
+const exDone=e=>e.sets.every(s=>s.done);
+
+/* ---------- navegación ---------- */
+const SCREENS=[['onb','Onboarding'],['plan','Tu plan'],['home','Inicio'],['train','Entrenar'],['session','Sesión en curso'],['summary','Resumen'],['eat','Comer'],['add','Agregar alimento'],['progress','Progreso'],['profile','Perfil']];
+const NO_TABS=['onb','plan','session','summary','add'];
+const TAB_OF={home:'home',train:'train',session:'train',summary:'train',eat:'eat',add:'eat',progress:'progress',profile:'profile'};
+const NOTES={
+  onb:{t:'Onboarding · paso 6 de 9',e:'Etapa 3',p:['Una pregunta por pantalla, con barra de progreso: 9 pasos, unos 3 minutos.','El ritmo recomendado depende de tu objetivo, experiencia y % de grasa; el texto explica por qué.','Prueba cambiar el objetivo: cambian los ritmos y la recomendación.','Todo se puede editar después en Perfil.']},
+  plan:{t:'Tu plan inicial',e:'Etapa 3',p:['Cierre del onboarding: muestra el cálculo completo, sin cajas negras.','La rutina sale de días disponibles + nivel + equipamiento.','El reparto por tipo de día (pierna, torso, descanso) se activa en la Etapa 4.']},
+  home:{t:'Inicio',e:'Etapa 3',p:['Responde en 3 segundos: qué entreno hoy y cuánto me queda por comer.','El objetivo de hoy depende del entrenamiento: toca "¿Por qué 3.240 hoy?".','Agua en 1 toque; peso en 2 (viene con el último valor cargado).','La racha usa tu definición de día cumplido: kcal ±10 %, proteína ≥ 90 % y sesión si tocaba.']},
+  train:{t:'Entrenar',e:'Etapa 3',p:['Arriba el mesociclo: semana actual, RIR objetivo y cuándo viene la descarga.','Un botón grande para empezar la sesión de hoy.','Rutinas, biblioteca e historial a un toque.']},
+  session:{t:'Sesión en curso',e:'La pantalla más importante',p:['Cada serie viene cargada con la sugerencia: si la hiciste igual, basta un toque en ✓.','Al marcar ✓ parte el descanso con sonido (y vibración en Android).','Toca kg o reps para ajustarlos con botones grandes; ⋯ abre la calculadora de discos y sustituir.','Superseries A1/A2: el descanso corre después de A2.','Funciona sin señal: todo se guarda primero en el teléfono.']},
+  summary:{t:'Resumen de la sesión',e:'Etapa 3 + 4',p:['Celebración solo cuando hay récord real (1RM estimado con Epley).','Compara con la sesión anterior y adelanta qué subir la próxima vez.','Puente con Comer: propone el post-entreno según lo que te queda del día.']},
+  eat:{t:'Comer · diario',e:'Etapa 3',p:['Comidas chilenas por defecto: desayuno, almuerzo, once, cena y colación.','Arriba lo que queda del día, con el ajuste por entrenamiento visible.','Cada comida tiene su propio "+ Agregar"; atajos para copiar de ayer.']},
+  add:{t:'Agregar alimento',e:'Etapa 3',p:['El buscador se abre listo para escribir; tus recientes aparecen primero.','Porciones caseras (unidad, taza, cucharada) o gramos.','Antes de agregar ves cómo queda tu día.','Prueba buscar "porotos" o "empanada".']},
+  progress:{t:'Progreso',e:'Etapa 3 + 4',p:['El peso diario sube y baja; lo que importa es la línea del promedio de 7 días.','El ritmo real se compara con el objetivo de la fase.','Series por músculo con alertas cuando algo queda bajo el rango.']},
+  profile:{t:'Perfil',e:'Etapa 3',p:['Fase actual y objetivos a la vista, con opción de cambiar de fase.','Preferencias de entrenamiento y alimentación editables.','Prueba el interruptor de modo oscuro.','"Compartir con tu pareja" queda por definir contigo.']}
+};
+let cur='home';
+function go(id){
+  cur=id;
+  document.querySelectorAll('.scr').forEach(s=>s.classList.toggle('on',s.id==='s-'+id));
+  $('#phone').classList.toggle('no-tabs',NO_TABS.includes(id));
+  document.querySelectorAll('.tabbar button').forEach(b=>b.classList.toggle('on',b.dataset.tab===TAB_OF[id]));
+  document.querySelectorAll('#jump button').forEach(b=>b.classList.toggle('on',b.dataset.go===id));
+  const n=NOTES[id];
+  $('#notes').innerHTML=`<span class="badge">${n.e}</span><h2>${n.t}</h2><ul>${n.p.map(x=>`<li>${x}</li>`).join('')}</ul><div class="legend">Datos de ejemplo. Los valores nutricionales son aproximados; en la app vendrán de USDA, Open Food Facts o recetas calculadas.</div>`;
+  const scr=$('#s-'+id);scr.scrollTop=0;
+  if(id==='home')renderHome();
+  if(id==='eat')renderEat();
+  if(id==='session')renderSession();
+  if(id==='summary'){renderSummary();confetti();}
+  if(id==='add')renderResults();
+  if(id!=='session')$('#rest').classList.remove('on');
+  else if(rest.left>0||rest.fin)$('#rest').classList.add('on');
+  closeSheet();
+}
+
+/* ---------- componentes ---------- */
+function macroBars(t){
+  return [['Proteína','p','--prot'],['Carbohidratos','c','--carb'],['Grasa','g','--fat']].map(([l,k,v])=>
+   `<div class="macro"><span class="lbl">${l}</span><div class="bar"><i style="width:${Math.min(100,t[k]/TARGET[k]*100)}%;background:var(${v})"></i></div><span class="val">${fmt(t[k])} / ${fmt(TARGET[k])} g</span></div>`).join('');
+}
+function renderHome(){
+  const t=dayTotals();
+  $('#homeLeft').textContent=fmt(Math.max(0,TARGET.k-t.k));
+  $('#homeEaten').textContent=fmt(t.k);
+  $('#homeTarget').textContent=fmt(TARGET.k);
+  $('#ring').setAttribute('stroke-dashoffset',326.73*(1-Math.min(1,t.k/TARGET.k)));
+  $('#homeMacros').innerHTML=macroBars(t);
+  $('#homeW').textContent=fmt(W[41],1);
+  $('#homeAvg').textContent=fmt(MA[41],1);
+  $('#rateChip').textContent=`${sign(RATE)} kg/sem`;
+  $('#rateTxt').textContent=`Tu promedio avanza ${sign(RATE)} kg por semana; el objetivo es +0,25. ${Math.abs(RATE-.25)<=.1?'Vas dentro del rango.':'Si sigue así 2 semanas, te propondremos un ajuste.'}`;
+  const days=[['L','ok','Torso'],['M','ok',''],['M','today','Pierna'],['J','',''],['V','train','Torso'],['S','train','Pierna'],['D','','']];
+  $('#homeWeek').innerHTML=days.map(([d,c,x])=>`<div class="day ${c}">${d}<div class="dot">${c==='ok'?ic('check',16):x?x[0]:''}</div></div>`).join('');
+}
+function renderEat(){
+  const t=dayTotals();
+  $('#eatLeft').textContent=fmt(Math.max(0,TARGET.k-t.k));
+  $('#eatMacros').innerHTML=macroBars(t);
+  $('#meals').innerHTML=MEALS.map(m=>{
+    const s=sum(m.items);
+    const body=m.items.length?m.items.map(([key,g])=>{const n=nut(key,g);return`<div class="fi"><div class="grow"><div>${FOODS[key].n}</div><div class="xs faint">${qty(key,g)}</div></div><div class="k">${fmt(n.k)}</div></div>`;}).join('')
+      :(m.id==='cena'?`<div class="empty">Después de entrenar: apunta a ~40 g de proteína y ~100 g de carbohidratos.</div>`:`<div class="empty">Sin registros todavía.</div>`);
+    return `<div class="card meal"><div class="meal-h"><div><b>${m.n}</b> <span class="xs faint">${m.t}</span></div><span class="num muted" style="font-size:18px">${m.items.length?fmt(s.k)+' kcal':''}</span></div>${body}<button class="add-row" data-add="${m.id}">${ic('plus',18)}Agregar</button></div>`;
+  }).join('')+`<div class="card"><div class="row between"><div class="row" style="gap:8px">${ic('drop',18)}<b>Agua</b></div><span class="num" style="font-size:18px">${fmt(water)} / 3.000 ml</span></div><div class="bar" style="margin-top:10px"><i style="width:${Math.min(100,water/30)}%;background:var(--prot)"></i></div></div>`;
+}
+let addMeal='cena',addTab='rec';
+const RECENT=['marraqueta','palta','huevo','pollo','arroz','platano','quesillo'];
+const FAV=['avena','whey','yogur','atun','riendas'];
+const norm=s=>s.normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase();
+function openAdd(meal){addMeal=meal;$('#addTitle').textContent='Agregar a '+MEALS.find(m=>m.id===meal).n;$('#q').value='';go('add');}
+function renderResults(){
+  const q=norm($('#q').value.trim());
+  let keys;
+  if(q){keys=Object.keys(FOODS).filter(k=>norm(FOODS[k].n).includes(q));keys.sort((a,b)=>(RECENT.includes(b)-RECENT.includes(a)));}
+  else keys=addTab==='rec'?RECENT:addTab==='fav'?FAV:[];
+  $('#results').innerHTML=(!q&&addTab==='mis')?`<div class="empty" style="margin-top:12px">Aquí aparecerán tus comidas guardadas, como "Mi desayuno de siempre".</div>`
+   :keys.length?keys.map(k=>{const f=FOODS[k],p=f.por[0],n=nut(k,p[1]);return`<button class="res" data-food="${k}"><div class="grow"><div>${f.n}</div><div class="xs faint">${f.tag?f.tag+' · ':''}${p[0]} (${p[1]} ${f.u||'g'}) · ${fmt(n.k)} kcal</div></div><span class="plus">${ic('plus',18)}</span></button>`;}).join('')
+   :`<div class="empty" style="margin-top:12px">Sin resultados para "${$('#q').value}". Podrás crear el alimento o escanear su código.</div>`;
+}
+
+/* ---------- hojas inferiores ---------- */
+function openSheet(html){$('#sheetBody').innerHTML=html;$('#scrim').classList.add('on');$('#sheet').classList.add('on');}
+function closeSheet(){$('#scrim').classList.remove('on');$('#sheet').classList.remove('on');}
+let qtyState=null;
+function openQty(key){
+  const f=FOODS[key];qtyState={key,por:0,count:1};
+  const draw=()=>{
+    const s=qtyState,g=s.por===-1?s.count:f.por[s.por][1]*s.count,n=nut(key,g),after=dayTotals().k+n.k;
+    openSheet(`<div class="row between"><div><div class="h2">${f.n}</div><div class="xs faint">${f.tag||'Genérico'} · por 100 ${f.u||'g'}: ${fmt(f.k)} kcal</div></div><button class="icon-btn" data-close aria-label="Cerrar">${ic('x')}</button></div>
+      <div class="pchips">${f.por.map((p,i)=>`<button class="${s.por===i?'on':''}" data-por="${i}">${p[0]} · ${p[1]} ${f.u||'g'}</button>`).join('')}<button class="${s.por===-1?'on':''}" data-por="-1">${f.u==='ml'?'Mililitros':'Gramos'}</button></div>
+      <div class="stepper"><button data-q="-1">−</button><div class="v">${s.por===-1?fmt(s.count):fmt(s.count,s.count%1?1:0)}<div class="xs muted" style="font-family:Inter;font-weight:500">${s.por===-1?(f.u||'g'):f.por[s.por][0].toLowerCase()+' · '+fmt(g)+' '+(f.u||'g')}</div></div><button data-q="1">+</button></div>
+      <div class="m4"><div><div class="num" style="font-size:20px">${fmt(n.k)}</div><div class="xs muted">kcal</div></div><div><div class="num" style="font-size:20px;color:var(--prot)">${fmt(n.p,1)}</div><div class="xs muted">prot.</div></div><div><div class="num" style="font-size:20px;color:var(--carb)">${fmt(n.c,1)}</div><div class="xs muted">carbos</div></div><div><div class="num" style="font-size:20px;color:var(--fat)">${fmt(n.g,1)}</div><div class="xs muted">grasa</div></div></div>
+      <p class="small muted" style="margin:14px 0">Tu día quedaría en <b style="color:var(--text)">${fmt(after)} / ${fmt(TARGET.k)} kcal</b>.</p>
+      <button class="btn btn-primary" data-addfood="${g}">Agregar a ${MEALS.find(m=>m.id===addMeal).n}</button>`);
+  };
+  qtyState.draw=draw;draw();
+}
+let stepState=null;
+function openStepper(e,s,field){
+  stepState={e,s,field};
+  const ex=SES[e],set=ex.sets[s];
+  const lbl={kg:'Peso (kg)',r:'Repeticiones',rir:'RIR (reps en reserva)'}[field];
+  const step={kg:2.5,r:1,rir:1}[field];
+  const draw=()=>openSheet(`<div class="row between"><div><div class="h2">${ex.n}</div><div class="small muted">Serie ${set.t==='C'?'de calentamiento':set.t} · ${lbl}</div></div><button class="icon-btn" data-close aria-label="Cerrar">${ic('x')}</button></div>
+    <div class="stepper"><button data-st="-1">−${fmt(step,step%1?1:0)}</button><div class="v">${fmt(set[field]??0,field==='kg'&&set[field]%1?1:0)}</div><button data-st="1">+${fmt(step,step%1?1:0)}</button></div>
+    <p class="small muted" style="margin-bottom:14px">Anterior: ${set.prev}. ${field==='kg'?'Los cambios se copian a las series siguientes que aún no marcas.':''}</p>
+    <button class="btn btn-primary" data-close>Listo</button>`);
+  stepState.draw=draw;stepState.step=step;draw();
+}
+function openExMenu(e){
+  openSheet(`<div class="h2" style="margin-bottom:10px">${SES[e].n}</div><div class="list" style="margin:0">
+    <button class="li" data-plates="${e}"><span class="ico">${ic('calc',18)}</span><span class="grow">Calculadora de discos</span></button>
+    <button class="li" data-toast="Sustituir: ejercicios del mismo patrón y músculo con tu equipamiento"><span class="ico">${ic('repeat',18)}</span><span class="grow">Sustituir ejercicio</span></button>
+    <button class="li" data-toast="Técnica: pasos, errores comunes e imagen"><span class="ico">${ic('book',18)}</span><span class="grow">Ver técnica</span></button>
+    <button class="li" data-toast="Nota rápida para la próxima vez"><span class="ico">${ic('note',18)}</span><span class="grow">Agregar nota</span></button></div>`);
+}
+const PLATE_COL={25:['#DC2626','#fff'],20:['#2563EB','#fff'],15:['#EAB308','#1A1A1A'],10:['#16A34A','#fff'],5:['#F4F4F5','#1A1A1A'],2.5:['#DC2626','#fff'],1.25:['#A1A1AA','#1A1A1A']};
+const PLATE_H={25:120,20:112,15:100,10:88,5:62,2.5:50,1.25:42};
+function openPlates(e){
+  const ex=SES[e],set=ex.sets.find(s=>!s.done&&s.t!=='C')||ex.sets[ex.sets.length-1];
+  const total=set.kg,bar=20;let side=(total-bar)/2;const out=[];
+  for(const p of [25,20,15,10,5,2.5,1.25]){while(side>=p-1e-9){out.push(p);side=Math.round((side-p)*100)/100;}}
+  openSheet(`<div class="row between"><div><div class="h2">Discos por lado</div><div class="small muted">${fmt(total,total%1?1:0)} kg con barra de ${bar} kg</div></div><button class="icon-btn" data-close aria-label="Cerrar">${ic('x')}</button></div>
+    <div class="plates"><div class="barend"></div><div class="collar"></div>${out.map(p=>`<div class="plate" style="width:${p>=10?22:16}px;height:${PLATE_H[p]}px;background:${PLATE_COL[p][0]};color:${PLATE_COL[p][1]}">${p>=5?fmt(p):''}</div>`).join('')}<div style="width:30px;height:12px;background:var(--faint);border-radius:0 3px 3px 0"></div></div>
+    <p style="text-align:center" class="num"><span style="font-size:24px">${out.map(p=>fmt(p,p%1?2:0).replace(/,?0+$/,'')).join(' + ')||'Solo la barra'}</span></p>
+    <p class="small muted" style="text-align:center;margin:4px 0 16px">${out.length?fmt((total-bar)/2,((total-bar)/2)%1?2:0)+' kg por lado':''} · discos configurables en Perfil</p>
+    <button class="btn btn-soft" data-close>Cerrar</button>`);
+}
+
+/* ---------- sesión: render y descanso ---------- */
+function renderSession(){
+  $('#sesList').innerHTML=SES.map((ex,e)=>{
+    const done=ex.sets.filter(s=>s.done).length,act=e===openEx,comp=exDone(ex);
+    const head=`<button class="ex-h" data-ex="${e}"><span class="thumb">${comp?ic('check',24):ic('dumbbell',24)}</span><span class="grow"><b>${ex.g?`<span class="tag-ss">${ex.g}</span>`:''}${ex.n}</b><br><span class="xs faint">${act?'Última vez: '+ex.last:ex.m+' · '+done+'/'+ex.sets.length+' series'}</span></span>${act?`<span class="icon-btn" data-menu="${e}" role="button" aria-label="Opciones">${ic('more')}</span>`:ic('chev-d',18)}</button>`;
+    if(!act)return`<div class="ex${comp?' complete':''}">${head}</div>`;
+    return`<div class="ex active">${head}<div class="sug">${ic('trend',16)}<span>${ex.sug}</span></div>
+      <div class="sets"><div class="set head"><span>Serie</span><span>Anterior</span><span>kg</span><span>Reps</span><span>RIR</span><span></span></div>
+      ${ex.sets.map((s,i)=>`<div class="set${s.done?' done':''}"><span class="n${s.t==='C'?' w':''}">${s.t}</span><span class="prev">${s.prev}</span><button class="cell" data-cell="${e},${i},kg">${fmt(s.kg,s.kg%1?1:0)}</button><button class="cell" data-cell="${e},${i},r">${s.r}</button><button class="cell sm" data-cell="${e},${i},rir">${s.rir??'–'}</button><button class="chk" data-chk="${e},${i}" aria-label="Marcar serie">${ic('check',22)}</button></div>`).join('')}</div>
+      <div class="ex-tools"><button class="btn btn-soft btn-sm" data-plates="${e}">${ic('calc',16)}Discos</button><button class="btn btn-soft btn-sm" data-toast="Sustituir: mismo patrón y músculo, con tu equipamiento">${ic('repeat',16)}Sustituir</button><button class="btn btn-soft btn-sm" data-toast="Serie extra agregada (prototipo)">${ic('plus',16)}Serie</button></div></div>`;
+  }).join('');
+}
+const rest={left:0,total:0,iv:null,fin:false};
+const mmss=s=>`${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;
+function paintRest(){const r=$('#rest');r.classList.toggle('fin',rest.fin);$('#restTime').textContent=rest.fin?'¡Vamos!':mmss(Math.max(0,rest.left));$('#restLbl').textContent=rest.fin?'Descanso terminado · siguiente serie':'Descanso';$('#restProg').style.width=(rest.total?rest.left/rest.total*100:0)+'%';}
+function startRest(sec){clearInterval(rest.iv);rest.total=sec;rest.left=sec;rest.fin=false;$('#rest').classList.add('on');paintRest();rest.iv=setInterval(()=>{rest.left--;if(rest.left<=0){endRest(true);}else paintRest();},1000);}
+function endRest(sound){clearInterval(rest.iv);rest.left=0;if(sound){rest.fin=true;beep();try{navigator.vibrate&&navigator.vibrate([200,100,200]);}catch(_){}paintRest();setTimeout(()=>{if(rest.fin){rest.fin=false;$('#rest').classList.remove('on');}},2500);}else{rest.fin=false;$('#rest').classList.remove('on');}}
+let actx;
+function beep(){try{actx=actx||new(window.AudioContext||window.webkitAudioContext)();[0,.18].forEach(d=>{const o=actx.createOscillator(),g=actx.createGain();o.frequency.value=880;g.gain.setValueAtTime(.001,actx.currentTime+d);g.gain.exponentialRampToValueAtTime(.25,actx.currentTime+d+.02);g.gain.exponentialRampToValueAtTime(.001,actx.currentTime+d+.15);o.connect(g).connect(actx.destination);o.start(actx.currentTime+d);o.stop(actx.currentTime+d+.16);});}catch(_){}}
+let t0=Date.now()-(12*60+34)*1000;
+setInterval(()=>{if(cur==='session')$('#elapsed').textContent=mmss(Math.floor((Date.now()-t0)/1000));},1000);
+
+function checkSet(e,i){
+  const ex=SES[e],s=ex.sets[i];s.done=!s.done;
+  if(s.done){
+    try{navigator.vibrate&&navigator.vibrate(30);}catch(_){}
+    if(exDone(ex)){
+      const next=SES.findIndex((x,k)=>k>e&&!exDone(x));
+      if(ex.rest)startRest(ex.rest);
+      if(next>-1){setTimeout(()=>{openExAt(next);},450);toast(`${ex.n} lista · sigue ${SES[next].n}`);}
+      else toast('¡Todo listo! Toca Terminar para ver tu resumen');
+    }else if(ex.rest===0){const pair=SES[e+1];toast(`Sin descanso: sigue con A2 · ${pair.n}`);setTimeout(()=>openExAt(e+1),350);}
+    else if(ex.g==='A2'){startRest(ex.rest);setTimeout(()=>openExAt(e-1),350);}
+    else startRest(s.t==='C'?60:ex.rest);
+  }
+  renderSession();
+}
+function openExAt(e){openEx=e;renderSession();const el=document.querySelectorAll('#sesList .ex')[e];el&&el.scrollIntoView({behavior:'smooth',block:'start'});}
+
+/* ---------- resumen ---------- */
+function renderSummary(){
+  const t=dayTotals(),p=sum(POST);
+  $('#postLeft').textContent=fmt(Math.max(0,TARGET.k-t.k));
+  $('#postKcal').textContent=fmt(p.k)+' kcal';
+  $('#postMacros').textContent=`${fmt(p.p)} g proteína · ${fmt(p.c)} g carbohidratos · ${fmt(p.g,1)} g grasa`;
+}
+function confetti(){
+  const ph=$('#phone'),cols=['#FF6B1A','#FACC15','#38BDF8','#A3E635','#C084FC','#F4F4F5'];
+  for(let i=0;i<70;i++){const d=document.createElement('div');d.className='confetti';d.style.left=Math.random()*100+'%';d.style.background=cols[i%cols.length];d.style.animationDelay=Math.random()*.6+'s';d.style.transform=`rotate(${Math.random()*360}deg)`;ph.appendChild(d);setTimeout(()=>d.remove(),3400);}
+  try{navigator.vibrate&&navigator.vibrate([60,40,120]);}catch(_){}
+}
+
+/* ---------- progreso ---------- */
+function renderProgress(){
+  $('#pAvg').textContent=fmt(MA[41],1);
+  $('#pRate').textContent=sign(RATE);
+  const w=326,h=150,pl=34,pr=6,pt=10,pb=22,mn=Math.floor(Math.min(...W)-.3),mx=Math.ceil(Math.max(...W)+.3);
+  const x=i=>pl+i/41*(w-pl-pr),y=v=>pt+(mx-v)/(mx-mn)*(h-pt-pb);
+  const grid=[mn,(mn+mx)/2,mx].map(v=>`<line x1="${pl}" x2="${w-pr}" y1="${y(v)}" y2="${y(v)}" stroke="var(--border)"/><text x="${pl-6}" y="${y(v)+4}" text-anchor="end" font-size="11" fill="var(--faint)">${fmt(v,1)}</text>`).join('');
+  const dots=W.map((v,i)=>`<circle cx="${x(i)}" cy="${y(v)}" r="2.3" fill="var(--faint)" opacity=".7"/>`).join('');
+  const line=MA.map((v,i)=>`${i?'L':'M'}${x(i).toFixed(1)} ${y(v).toFixed(1)}`).join(' ');
+  const lbls=[0,20,41].map(i=>`<text x="${x(i)}" y="${h-4}" text-anchor="${i===0?'start':i===41?'end':'middle'}" font-size="11" fill="var(--faint)">${dayLbl(i)}</text>`).join('');
+  $('#wChart').innerHTML=`<svg viewBox="0 0 ${w} ${h}" width="100%" role="img" aria-label="Peso diario y promedio de 7 días de las últimas 6 semanas">${grid}${dots}<path d="${line}" fill="none" stroke="var(--primary)" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/><circle cx="${x(41)}" cy="${y(MA[41])}" r="4.5" fill="var(--primary)"/>${lbls}</svg>`;
+  const V=[['Cuádriceps',13],['Isquiotibiales',7],['Glúteos',11],['Pecho',14],['Espalda',16],['Hombros',12],['Bíceps',10],['Tríceps',10]];
+  $('#volList').innerHTML=V.map(([m,s])=>`<div class="vol"><span class="muted">${m}</span><div class="vtrack"><div class="vband" style="left:${10/24*100}%;width:${10/24*100}%"></div><div class="vfill${s<10?' low':''}" style="width:${s/24*100}%"></div></div><span class="num" style="font-size:16px;text-align:right">${s}</span></div>`).join('');
+}
+
+/* ---------- onboarding ---------- */
+const PACES={vol:[['Lento','+0,15'],['Recomendado','+0,25'],['Rápido','+0,40']],def:[['Suave','−0,25'],['Recomendado','−0,50'],['Rápido','−0,75']]};
+const HINTS={vol:'Para tu nivel (intermedio) recomendamos +0,25 kg por semana: ir más rápido suele sumar más grasa que músculo.',def:'Recomendado −0,5 kg por semana (≈ 0,7 % de tu peso): protege la masa muscular y la fuerza.',rec:'Calorías cerca de mantención y proteína alta (2,0 g/kg). Funciona mejor si llevas poco tiempo entrenando o vuelves de una pausa.',man:'Calorías de mantención. Ideal para consolidar entre un volumen y una definición.'};
+let goal='vol',pace=1;
+function renderGoal(){
+  document.querySelectorAll('#goalOpts .opt').forEach(o=>o.classList.toggle('on',o.dataset.goal===goal));
+  const p=PACES[goal];$('#paceBox').style.display=p?'':'none';
+  if(p)$('#paceSeg').innerHTML=p.map(([l,v],i)=>`<button class="${i===pace?'on':''}" data-pace="${i}"><b>${v} kg</b>${l}</button>`).join('');
+  $('#paceHint').textContent=HINTS[goal];
+}
+
+/* ---------- toast ---------- */
+let toastT;
+function toast(msg,act,fn){$('#toastMsg').textContent=msg;const b=$('#toastAct');b.textContent=act||'';b.style.display=act?'':'none';b.onclick=()=>{fn&&fn();$('#toast').classList.remove('on');};$('#toast').classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>$('#toast').classList.remove('on'),act?4500:2600);}
+
+/* ---------- tema ---------- */
+function setTheme(t){document.documentElement.dataset.theme=t;try{localStorage.setItem('forus-theme',t);}catch(_){}$('#themeBtn').textContent=t==='dark'?'Ver modo claro':'Ver modo oscuro';$('#themeSwitch').classList.toggle('on',t==='dark');}
+
+/* ---------- eventos ---------- */
+document.addEventListener('click',ev=>{
+  const el=ev.target.closest('button,[data-menu],[data-close]');if(!el)return;
+  const d=el.dataset;
+  if(d.menu!==undefined){ev.stopPropagation();openExMenu(+d.menu);return;}
+  if(d.close!==undefined){closeSheet();if(cur==='session')renderSession();return;}
+  if(d.go){go(d.go);return;}
+  if(d.toast){closeSheet();toast(d.toast);return;}
+  if(d.goal){goal=d.goal;pace=1;renderGoal();return;}
+  if(d.pace){pace=+d.pace;renderGoal();return;}
+  if(d.add){openAdd(d.add);return;}
+  if(d.tab&&el.closest('#addTabs')){addTab=d.tab;document.querySelectorAll('#addTabs button').forEach(b=>b.classList.toggle('on',b===el));renderResults();return;}
+  if(d.food){openQty(d.food);return;}
+  if(d.por){const f=FOODS[qtyState.key];qtyState.por=+d.por;qtyState.count=qtyState.por===-1?f.por[0][1]:1;qtyState.draw();return;}
+  if(d.q){const s=qtyState,stp=s.por===-1?10:.5;s.count=Math.max(stp,Math.round((s.count+ +d.q*stp)*10)/10);s.draw();return;}
+  if(d.addfood){const m=MEALS.find(x=>x.id===addMeal),item=[qtyState.key,+d.addfood];m.items.push(item);const name=FOODS[qtyState.key].n;go('eat');toast(`${name} agregado a ${m.n}`,'Deshacer',()=>{m.items.splice(m.items.indexOf(item),1);renderEat();});return;}
+  if(d.ex!==undefined){openEx=openEx===+d.ex?-1:+d.ex;renderSession();return;}
+  if(d.cell){const[e,i,f]=d.cell.split(',');openStepper(+e,+i,f);return;}
+  if(d.chk){const[e,i]=d.chk.split(',').map(Number);checkSet(e,i);return;}
+  if(d.plates!==undefined){openPlates(+d.plates);return;}
+  if(d.st){const{e,s,field,step}=stepState,ex=SES[e],set=ex.sets[s];let v=(set[field]??0)+ +d.st*step;v=Math.max(0,field==='rir'?Math.min(5,v):v);set[field]=v;if(field==='kg')ex.sets.forEach((x,k)=>{if(k>s&&!x.done&&x.t!=='C')x.kg=v;});stepState.draw();return;}
+});
+$('#scrim').addEventListener('click',()=>{closeSheet();if(cur==='session')renderSession();});
+$('#q').addEventListener('input',renderResults);
+$('#restMinus').onclick=()=>{rest.left=Math.max(1,rest.left-15);paintRest();};
+$('#restPlus').onclick=()=>{rest.left+=15;rest.total=Math.max(rest.total,rest.left);paintRest();};
+$('#restSkip').onclick=()=>endRest(false);
+$('#waterBtn').onclick=()=>{water=Math.min(4000,water+250);$('#waterVal').textContent=fmt(water);$('#waterBar').style.width=Math.min(100,water/30)+'%';toast('+250 ml de agua','Deshacer',()=>{water-=250;$('#waterVal').textContent=fmt(water);$('#waterBar').style.width=Math.min(100,water/30)+'%';});};
+let wDraft=W[41];
+$('#weightBtn').onclick=()=>{wDraft=W[41];const draw=()=>openSheet(`<div class="row between"><div class="h2">Peso de hoy</div><button class="icon-btn" data-close aria-label="Cerrar">${ic('x')}</button></div><div class="stepper"><button id="wm">−0,1</button><div class="v">${fmt(wDraft,1)}<div class="xs muted" style="font-family:Inter;font-weight:500">kg · en ayunas, después del baño</div></div><button id="wp">+0,1</button></div><button class="btn btn-primary" id="wSave">Guardar</button>`);draw();
+  $('#sheet').onclick=ev=>{if(ev.target.closest('#wm')){wDraft=Math.round((wDraft-.1)*10)/10;draw();}if(ev.target.closest('#wp')){wDraft=Math.round((wDraft+.1)*10)/10;draw();}if(ev.target.closest('#wSave')){closeSheet();$('#homeW').textContent=fmt(wDraft,1);toast('Peso guardado · el promedio de 7 días se actualiza');$('#sheet').onclick=null;}};};
+$('#whyBtn').onclick=()=>openSheet(`<div class="row between"><div class="h2">¿Por qué 3.240 hoy?</div><button class="icon-btn" data-close aria-label="Cerrar">${ic('x')}</button></div>
+  <p class="muted" style="margin:10px 0 14px">Tu promedio semanal es <b style="color:var(--text)">2.940 kcal</b> (volumen, +0,25 kg/sem). Hoy toca pierna, la sesión más exigente: la proteína (135 g) y la grasa (82 g) no cambian y los carbohidratos suben. Los días de descanso bajan, así el promedio de la semana se mantiene.</p>
+  <div class="list" style="margin-bottom:14px"><div class="li"><span class="grow">Pierna (mié, sáb)</span><span class="num" style="font-size:18px">3.240 · 491 g carbos</span></div><div class="li"><span class="grow">Torso (lun, vie)</span><span class="num" style="font-size:18px">3.040 · 440 g carbos</span></div><div class="li"><span class="grow">Descanso (3 días)</span><span class="num" style="font-size:18px">2.670 · 348 g carbos</span></div></div>
+  <button class="btn btn-soft" data-close>Entendido</button>`);
+$('#postBtn').onclick=()=>{const m=MEALS.find(x=>x.id==='cena');POST.forEach(it=>m.items.push([...it]));go('eat');toast('Post-entreno agregado a Cena');};
+$('#themeBtn').onclick=()=>setTheme(document.documentElement.dataset.theme==='dark'?'light':'dark');
+$('#themeRow').onclick=()=>setTheme(document.documentElement.dataset.theme==='dark'?'light':'dark');
+
+/* ---------- inicio ---------- */
+$('#jump').innerHTML=SCREENS.map(([id,l])=>`<button data-go="${id}">${l}</button>`).join('');
+hydrate();
+try{const t=localStorage.getItem('forus-theme');if(t)setTheme(t);}catch(_){}
+renderGoal();renderProgress();
+const start=(location.hash||'').slice(1);
+go(SCREENS.some(([id])=>id===start)?start:'home');
+</script>
+</body>
+</html>
